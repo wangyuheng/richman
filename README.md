@@ -73,3 +73,26 @@ curl --location --request POST 'localhost:8080/feishu/webhook' \
 ## 微信公众号
 
 Coming Soon
+
+## Docker
+
+使用
+```shell
+docker run -e "LARK_APP_ID=cli_a232fc4bceb8100b" \
+-e "LARK_APP_SECRET=AWkBwpc15kgsCOWf7Y7KQcCJyAdM1Clx" \
+-e "LARK_APP_TOKEN=bascnZkP4JxAWoFuO8R6LUJABme" \
+-e "LARK_APP_VERIFICATION_TOKEN=lqfwcLQ2msJvhDZD8Z5JibXB7fq8tTaD" \
+geeklubcn/richman:v1 
+```
+
+打包
+
+```shell
+docker build -t geeklubcn/richman:v1 .
+```
+
+PUSH
+
+```shell
+docker push geeklubcn/richman:v1
+```

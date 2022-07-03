@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	env()
+	//env()
 
 	cfg := config.Load()
 	logrus.SetLevel(cfg.LogLevel)
