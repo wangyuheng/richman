@@ -2,7 +2,6 @@ package handle
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/geeklubcn/richman/biz"
@@ -26,17 +25,16 @@ type feishu struct {
 	bills biz.BillBiz
 }
 
-func NewFeishu(appId, appSecret, verificationToken, appToken string) Feishu {
+func NewFeishu(appId, appSecret, verificationToken string) Feishu {
 	appSettings := larkCore.NewInternalAppSettings(
 		larkCore.SetAppCredentials(appId, appSecret),
 		larkCore.SetAppEventKey(verificationToken, ""),
 	)
 	conf := larkCore.NewConfig(larkCore.DomainFeiShu, appSettings)
-	bitableCli := client.NewBitable(appId, appSecret, appToken)
 	f := &feishu{
 		conf:  conf,
 		ims:   client.NewFeishuIm(conf),
-		bills: biz.NewBill(bitableCli),
+		bills: biz.NewBill(appId, appSecret),
 	}
 
 	larkIm.SetMessageReceiveEventHandler(conf, f.imMessageReceiveV1)
@@ -67,18 +65,7 @@ func (f *feishu) imMessageReceiveV1(ctx *larkCore.Context, event *larkIm.Message
 		if err != nil {
 			return err
 		}
-		resMsg := "ok"
-		err = f.bills.Record(event.Event.Sender.SenderId.OpenId, msg.Text)
-		if err != nil {
-			if errors.Is(err, biz.AmountIllegal) {
-				resMsg = "金额格式非法，正确格式如 1.11"
-			} else {
-				resMsg = err.Error()
-			}
-		} else {
-			resMsg = fmt.Sprintf("记账成功。本月已支出 %.2f", f.bills.CurMonthTotal())
-		}
-
+		resMsg := f.bills.Record(event.Event.Sender.SenderId.OpenId, msg.Text)
 		mid, err := f.ims.ReplyTextMsg(ctx, event.Event.Message.MessageId, resMsg)
 		if err != nil {
 			return err

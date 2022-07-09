@@ -6,67 +6,89 @@ import (
 	"strings"
 	"time"
 
-	"github.com/geeklubcn/richman/client"
-	"github.com/geeklubcn/richman/db"
+	"github.com/geeklubcn/feishu-bitable-db/db"
+	"github.com/geeklubcn/richman/repo"
 )
 
 type BillBiz interface {
-	Record(authorID, cmd string) error
-	GetCategory(remark string) []string
-	CurMonthTotal() float64
+	Record(authorID, cmd string) string
+	GetCategory(appToken, remark string) []string
 }
 
 type billBiz struct {
-	db db.Bills
+	repo  repo.Bills
+	books Book
 }
 
-func NewBill(cli client.Bitable) BillBiz {
-	return &billBiz{db: db.NewBills(cli)}
+func NewBill(appId, appSecret string) BillBiz {
+	return &billBiz{
+		repo:  repo.NewBills(appId, appSecret),
+		books: NewBook(appId, appSecret),
+	}
 }
 
-func (b *billBiz) Record(authorID, content string) error {
+func (b *billBiz) Record(authorID, content string) string {
 	cmds := strings.Split(strings.TrimSpace(content), " ")
+	appToken, exists := b.books.GetAppTokenByOpenId(authorID)
+	if len(cmds) != 1 && !exists {
+		return fmt.Sprintf("请先绑定菜单。可以把记账文档发给我. 如%s", "https://richman.feishu.cn/base/bascnzqgwKBqIQxp272MoZh1fhd")
+	}
 	switch len(cmds) {
+	case 1:
+		url := cmds[0]
+		_, err := b.books.Save(authorID, url)
+		if err != nil {
+			return err.Error()
+		}
+		return "绑定成功，可以开始记账啦 \r\n记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100\""
 	case 2:
 		remark := cmds[0]
 		amount, expenses, err := b.parseAmount(cmds[1])
 		if err != nil {
-			return err
+			return err.Error()
 		}
-		categories := b.GetCategory(remark)
+		categories := b.GetCategory(appToken, remark)
 		if len(categories) == 0 {
-			return fmt.Errorf("猜不出【%s】是什么分类。先按照完整格式提交一下，下次我就记住了。 \r\n 格式： 备注 分类 金额。比如： 泡面 餐费 100", remark)
+			return fmt.Sprintf("猜不出【%s】是什么分类。先按照完整格式提交一下，下次我就记住了。 \r\n 格式： 备注 分类 金额。比如： 泡面 餐费 100", remark)
 		}
-		return b.db.Save(&db.Bill{
+		err = b.repo.Save(appToken, &repo.Bill{
 			Remark:     remark,
 			Categories: categories,
 			Amount:     amount,
 			Expenses:   expenses,
 			AuthorID:   authorID,
 		})
+		if err == nil {
+			return fmt.Sprintf("记账成功。本月已支出 %.2f", b.curMonthTotal(appToken))
+		}
+		return err.Error()
 	case 3:
 		remark := cmds[0]
 		amount, expenses, err := b.parseAmount(cmds[2])
 		if err != nil {
-			return err
+			return err.Error()
 		}
 		categories := []string{cmds[1]}
-		return b.db.Save(&db.Bill{
+		err = b.repo.Save(appToken, &repo.Bill{
 			Remark:     remark,
 			Categories: categories,
 			Amount:     amount,
 			Expenses:   expenses,
 			AuthorID:   authorID,
 		})
+		if err == nil {
+			return fmt.Sprintf("记账成功。本月已支出 %.2f", b.curMonthTotal(appToken))
+		}
+		return err.Error()
 	default:
-		return fmt.Errorf("格式错误。记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100")
+		return fmt.Sprintf("格式错误。记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100")
 	}
 }
 
 func (b *billBiz) parseAmount(cmd string) (amount float64, expenses string, err error) {
-	expenses = db.Pay
+	expenses = repo.Pay
 	if strings.HasPrefix(cmd, "+") {
-		expenses = db.Income
+		expenses = repo.Income
 	}
 	amount, err = strconv.ParseFloat(strings.TrimPrefix(cmd, "+"), 10)
 	if err != nil {
@@ -75,12 +97,12 @@ func (b *billBiz) parseAmount(cmd string) (amount float64, expenses string, err 
 	return amount, expenses, err
 }
 
-func (b *billBiz) GetCategory(remark string) []string {
-	records := b.db.Search([]db.SearchCmd{
+func (b *billBiz) GetCategory(appToken, remark string) []string {
+	records := b.repo.Search(appToken, []db.SearchCmd{
 		{
-			Key:      db.BillTableRemark,
+			Key:      repo.BillTableRemark,
 			Operator: "=",
-			Val:      fmt.Sprintf("\"%s\"", remark),
+			Val:      remark,
 		},
 	})
 
@@ -100,18 +122,18 @@ func (b *billBiz) GetCategory(remark string) []string {
 	return nil
 }
 
-func (b *billBiz) CurMonthTotal() float64 {
+func (b *billBiz) curMonthTotal(appToken string) float64 {
 	var total float64
-	records := b.db.Search([]db.SearchCmd{
+	records := b.repo.Search(appToken, []db.SearchCmd{
 		{
-			Key:      db.BillTableMonth,
+			Key:      repo.BillTableMonth,
 			Operator: "=",
-			Val:      fmt.Sprintf("\"%d 月\"", time.Now().Month()),
+			Val:      fmt.Sprintf("%d 月", time.Now().Month()),
 		},
 		{
-			Key:      db.BillTableExpenses,
+			Key:      repo.BillTableExpenses,
 			Operator: "=",
-			Val:      fmt.Sprintf("\"%s\"", db.Pay),
+			Val:      repo.Pay,
 		},
 	})
 

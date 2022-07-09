@@ -13,7 +13,6 @@
 
 - LARK_APP_ID: 对应飞书开放平台 -> 开发者后台 -> 应用凭证 -> APP ID
 - LARK_APP_SECRET: 对应飞书开放平台 -> 开发者后台 -> 应用凭证 -> App Secret
-- LARK_APP_TOKEN: 新建多维表格后，通过浏览器url获取。
 - LARK_APP_VERIFICATION_TOKEN: 对应飞书开放平台 -> 开发者后台 -> 事件订阅 -> Verification Token
 
 比如
@@ -21,7 +20,6 @@
 ```shell
 LARK_APP_ID=cli_a232fc4bceb8100b
 LARK_APP_SECRET=AWkBwpc15kgsCOWf7Y7KQcCJyAdM1Clx
-LARK_APP_TOKEN=bascnZkP4JxAWoFuO8R6LUJABme
 LARK_APP_VERIFICATION_TOKEN=lqfwcLQ2msJvhDZD8Z5JibXB7fq8tTaD
 ```
 
