@@ -25,7 +25,7 @@ func main() {
 
 func register(r *gin.Engine) {
 	cfg := config.GetConfig()
-	feishu := handle.NewFeishu(cfg.AppId, cfg.AppSecret, cfg.VerificationToken, cfg.AppToken)
+	feishu := handle.NewFeishu(cfg.AppId, cfg.AppSecret, cfg.VerificationToken)
 
 	f := r.Group("/feishu")
 	{
