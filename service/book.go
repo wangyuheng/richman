@@ -1,4 +1,4 @@
-package biz
+package service
 
 import (
 	"context"
@@ -17,16 +17,16 @@ const (
 	bookOpenId   = "open_id"
 )
 
-type Book interface {
+type BookSvc interface {
 	GetAppTokenByOpenId(openId string) (string, bool)
 	Save(openId, url string) (string, error)
 }
 
-type book struct {
+type bookSvc struct {
 	db db.DB
 }
 
-func NewBook(appId, appSecret string) Book {
+func NewBookSvc(appId, appSecret string) BookSvc {
 	ctx := context.Background()
 	it, err := db.NewDB(appId, appSecret)
 	if err != nil {
@@ -40,10 +40,10 @@ func NewBook(appId, appSecret string) Book {
 			{Name: bookOpenId, Type: db.String},
 		},
 	})
-	return book{it}
+	return bookSvc{it}
 }
 
-func (b book) Save(openId, url string) (string, error) {
+func (b bookSvc) Save(openId, url string) (string, error) {
 	ctx := context.Background()
 
 	ss := strings.Split(url, "feishu.cn/base/")
@@ -70,7 +70,7 @@ func (b book) Save(openId, url string) (string, error) {
 	})
 }
 
-func (b book) GetAppTokenByOpenId(openId string) (string, bool) {
+func (b bookSvc) GetAppTokenByOpenId(openId string) (string, bool) {
 	ctx := context.Background()
 	rs := b.db.Read(ctx, bookDatabase, bookTable, []db.SearchCmd{
 		{bookOpenId, "=", openId},

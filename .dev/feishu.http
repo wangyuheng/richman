@@ -1,6 +1,6 @@
 ### feishu challenge
 
-POST {{domain}}/feishu/webhook
+POST {{domain}}/feishu/webhook/cli_9f5343c580712533
 Content-Type: application/json
 
 {
@@ -11,7 +11,7 @@ Content-Type: application/json
 
 ### feishu im.message.receive_v1
 
-POST {{domain}}/feishu/webhook
+POST {{domain}}/feishu/webhook/cli_9f5343c580712533
 Content-Type: application/json
 
 {

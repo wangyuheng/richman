@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/geeklubcn/richman/model"
+
 	"github.com/geeklubcn/feishu-bitable-db/db"
 )
 
@@ -27,8 +29,8 @@ const (
 )
 
 type Bills interface {
-	Save(appToken string, bill *Bill) error
-	Search(appToken string, ss []db.SearchCmd) []Bill
+	Save(appToken string, bill *model.Bill) error
+	Search(appToken string, ss []db.SearchCmd) []*model.Bill
 }
 
 type bills struct {
@@ -41,14 +43,14 @@ func NewBills(appId, appSecret string) Bills {
 	return &bills{db: d}
 }
 
-func (b *bills) Search(appToken string, ss []db.SearchCmd) []Bill {
-	res := make([]Bill, 0)
+func (b *bills) Search(appToken string, ss []db.SearchCmd) []*model.Bill {
+	res := make([]*model.Bill, 0)
 
 	ctx := context.Background()
 	records := b.db.Read(ctx, appToken, billTable, ss)
 
 	for _, r := range records {
-		it := Bill{
+		it := &model.Bill{
 			Remark:   fmt.Sprintf("%s", r[BillTableRemark]),
 			Expenses: fmt.Sprintf("%s", r[BillTableExpenses]),
 			Month:    fmt.Sprintf("%s", r[BillTableMonth]),
@@ -84,7 +86,7 @@ func (b *bills) Search(appToken string, ss []db.SearchCmd) []Bill {
 	return res
 }
 
-func (b *bills) Save(appToken string, bill *Bill) error {
+func (b *bills) Save(appToken string, bill *model.Bill) error {
 	ctx := context.Background()
 
 	if bill.Date == 0 {
@@ -106,22 +108,4 @@ func (b *bills) Save(appToken string, bill *Bill) error {
 		},
 	})
 	return err
-}
-
-type Bill struct {
-	Remark     string
-	Categories []string
-	Amount     float64
-	Month      string
-	Date       int64
-	Expenses   string
-	AuthorID   string
-}
-
-func (b *Bill) GetCategory() interface{} {
-	if len(b.Categories) == 1 {
-		return b.Categories[0]
-	} else {
-		return b.Categories
-	}
 }

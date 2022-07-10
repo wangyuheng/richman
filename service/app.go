@@ -1,4 +1,4 @@
-package biz
+package service
 
 import (
 	"context"
@@ -15,12 +15,12 @@ const (
 	appsVerificationToken = "verification_token"
 )
 
-type App interface {
+type AppSvc interface {
 	FindAll() []*model.App
 	Save(m *model.App) (string, error)
 }
 
-func NewApp(appId, appSecret string) App {
+func NewAppSvc(appId, appSecret string) AppSvc {
 	ctx := context.Background()
 	it, _ := db.NewDB(appId, appSecret)
 	_, _ = it.SaveTable(ctx, appsDatabase, db.Table{
@@ -31,14 +31,14 @@ func NewApp(appId, appSecret string) App {
 			{Name: appsVerificationToken, Type: db.String},
 		},
 	})
-	return app{it}
+	return appSvc{it}
 }
 
-type app struct {
+type appSvc struct {
 	db db.DB
 }
 
-func (b app) FindAll() []*model.App {
+func (b appSvc) FindAll() []*model.App {
 	ctx := context.Background()
 	records := b.db.Read(ctx, appsDatabase, appsTable, nil)
 	res := make([]*model.App, 0)
@@ -52,7 +52,7 @@ func (b app) FindAll() []*model.App {
 	return res
 }
 
-func (b app) Save(m *model.App) (string, error) {
+func (b appSvc) Save(m *model.App) (string, error) {
 	ctx := context.Background()
 
 	for _, r := range b.db.Read(ctx, appsDatabase, appsTable, []db.SearchCmd{

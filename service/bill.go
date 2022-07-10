@@ -1,4 +1,4 @@
-package biz
+package service
 
 import (
 	"fmt"
@@ -6,28 +6,30 @@ import (
 	"strings"
 	"time"
 
+	"github.com/geeklubcn/richman/model"
+
 	"github.com/geeklubcn/feishu-bitable-db/db"
 	"github.com/geeklubcn/richman/repo"
 )
 
-type BillBiz interface {
+type BillSvc interface {
 	Record(authorID, cmd string) string
 	GetCategory(appToken, remark string) []string
 }
 
-type billBiz struct {
+type billSvc struct {
 	repo  repo.Bills
-	books Book
+	books BookSvc
 }
 
-func NewBill(appId, appSecret string) BillBiz {
-	return &billBiz{
+func NewBillSvc(appId, appSecret string) BillSvc {
+	return &billSvc{
 		repo:  repo.NewBills(appId, appSecret),
-		books: NewBook(appId, appSecret),
+		books: NewBookSvc(appId, appSecret),
 	}
 }
 
-func (b *billBiz) Record(authorID, content string) string {
+func (b *billSvc) Record(authorID, content string) string {
 	cmds := strings.Split(strings.TrimSpace(content), " ")
 	appToken, exists := b.books.GetAppTokenByOpenId(authorID)
 	if len(cmds) != 1 && !exists {
@@ -56,7 +58,7 @@ func (b *billBiz) Record(authorID, content string) string {
 		if len(categories) == 0 {
 			return fmt.Sprintf("猜不出【%s】是什么分类。先按照完整格式提交一下，下次我就记住了。 \r\n 格式： 备注 分类 金额。比如： 泡面 餐费 100", remark)
 		}
-		err = b.repo.Save(appToken, &repo.Bill{
+		err = b.repo.Save(appToken, &model.Bill{
 			Remark:     remark,
 			Categories: categories,
 			Amount:     amount,
@@ -74,7 +76,7 @@ func (b *billBiz) Record(authorID, content string) string {
 			return err.Error()
 		}
 		categories := []string{cmds[1]}
-		err = b.repo.Save(appToken, &repo.Bill{
+		err = b.repo.Save(appToken, &model.Bill{
 			Remark:     remark,
 			Categories: categories,
 			Amount:     amount,
@@ -90,7 +92,7 @@ func (b *billBiz) Record(authorID, content string) string {
 	}
 }
 
-func (b *billBiz) parseAmount(cmd string) (amount float64, expenses string, err error) {
+func (b *billSvc) parseAmount(cmd string) (amount float64, expenses string, err error) {
 	expenses = repo.Pay
 	if strings.HasPrefix(cmd, "+") {
 		expenses = repo.Income
@@ -102,7 +104,7 @@ func (b *billBiz) parseAmount(cmd string) (amount float64, expenses string, err 
 	return amount, expenses, err
 }
 
-func (b *billBiz) GetCategory(appToken, remark string) []string {
+func (b *billSvc) GetCategory(appToken, remark string) []string {
 	records := b.repo.Search(appToken, []db.SearchCmd{
 		{
 			Key:      repo.BillTableRemark,
@@ -110,7 +112,7 @@ func (b *billBiz) GetCategory(appToken, remark string) []string {
 			Val:      remark,
 		},
 	})
-
+	// distinct
 	if len(records) > 0 {
 		has := make(map[string]bool)
 		res := make([]string, 0)
@@ -127,7 +129,7 @@ func (b *billBiz) GetCategory(appToken, remark string) []string {
 	return nil
 }
 
-func (b *billBiz) curMonthTotal(appToken string) float64 {
+func (b *billSvc) curMonthTotal(appToken string) float64 {
 	var total float64
 	records := b.repo.Search(appToken, []db.SearchCmd{
 		{
