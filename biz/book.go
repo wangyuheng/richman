@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/geeklubcn/feishu-bitable-db/db"
 )
 
@@ -26,7 +28,11 @@ type book struct {
 
 func NewBook(appId, appSecret string) Book {
 	ctx := context.Background()
-	it, _ := db.NewDB(appId, appSecret)
+	it, err := db.NewDB(appId, appSecret)
+	if err != nil {
+		logrus.WithContext(ctx).WithError(err).Errorf("init DB err! appId:%s", appId)
+		return nil
+	}
 	_, _ = it.SaveTable(ctx, bookDatabase, db.Table{
 		Name: "books",
 		Fields: []db.Field{

@@ -65,18 +65,24 @@ func (f *feishu) Register(ctx *gin.Context) {
 		_ = ctx.AbortWithError(500, err)
 		return
 	}
-	appId, err := f.apps.Save(&app)
+	_, err = f.apps.Save(&app)
+	if err != nil {
+		_ = ctx.AbortWithError(500, err)
+		return
+	}
 	appSettings := larkCore.NewInternalAppSettings(
 		larkCore.SetAppCredentials(app.AppId, app.AppSecret),
 		larkCore.SetAppEventKey(app.VerificationToken, ""),
 	)
 	conf := larkCore.NewConfig(larkCore.DomainFeiShu, appSettings)
 
-	f.mf[appId] = &Facade{
+	f.mf[app.AppId] = &Facade{
 		Conf:  conf,
 		Bills: biz.NewBill(app.AppId, app.AppSecret),
 		Ims:   client.NewFeishuIm(conf),
 	}
+	larkIm.SetMessageReceiveEventHandler(conf, f.imMessageReceiveV1)
+
 	if err != nil {
 		_ = ctx.AbortWithError(500, err)
 		return

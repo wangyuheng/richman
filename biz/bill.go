@@ -35,12 +35,17 @@ func (b *billBiz) Record(authorID, content string) string {
 	}
 	switch len(cmds) {
 	case 1:
-		url := cmds[0]
-		_, err := b.books.Save(authorID, url)
-		if err != nil {
-			return err.Error()
+		cmd := cmds[0]
+		switch cmd {
+		case "账单":
+			return fmt.Sprintf("https://richman.feishu.cn/base/%s", appToken)
+		default:
+			_, err := b.books.Save(authorID, cmd)
+			if err != nil {
+				return err.Error()
+			}
+			return "绑定成功，可以开始记账啦 \r\n记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100\""
 		}
-		return "绑定成功，可以开始记账啦 \r\n记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100\""
 	case 2:
 		remark := cmds[0]
 		amount, expenses, err := b.parseAmount(cmds[1])
