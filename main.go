@@ -25,11 +25,12 @@ func main() {
 
 func register(r *gin.Engine) {
 	cfg := config.GetConfig()
-	feishu := handle.NewFeishu(cfg.AppId, cfg.AppSecret, cfg.VerificationToken)
+	feishu := handle.NewFeishu(cfg.AppId, cfg.AppSecret)
 
 	f := r.Group("/feishu")
 	{
-		f.POST("/webhook", feishu.Webhook)
+		f.POST("/webhook/:app_id", feishu.Webhook)
+		f.POST("/register", feishu.Register)
 	}
 
 }

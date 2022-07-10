@@ -55,7 +55,7 @@ func (b book) Save(openId, url string) (string, error) {
 	for _, r := range b.db.Read(ctx, bookDatabase, bookTable, []db.SearchCmd{
 		{bookOpenId, "=", openId},
 	}) {
-		_ = b.db.Delete(ctx, bookDatabase, bookTable, r["id"].(string))
+		_ = b.db.Delete(ctx, bookDatabase, bookTable, db.GetID(r))
 	}
 
 	return b.db.Create(ctx, bookDatabase, bookTable, map[string]interface{}{

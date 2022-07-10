@@ -6,6 +6,7 @@ import (
 
 	"github.com/geeklubcn/richman/biz"
 	"github.com/geeklubcn/richman/client"
+	"github.com/geeklubcn/richman/model"
 	"github.com/gin-gonic/gin"
 	larkCore "github.com/larksuite/oapi-sdk-go/core"
 	"github.com/larksuite/oapi-sdk-go/core/config"
@@ -17,28 +18,70 @@ import (
 
 type Feishu interface {
 	Webhook(ctx *gin.Context)
+	Register(ctx *gin.Context)
 }
 
 type feishu struct {
-	conf  *config.Config
-	ims   client.Im
-	bills biz.BillBiz
+	apps biz.App
+	mf   map[string]*Facade
 }
 
-func NewFeishu(appId, appSecret, verificationToken string) Feishu {
-	appSettings := larkCore.NewInternalAppSettings(
-		larkCore.SetAppCredentials(appId, appSecret),
-		larkCore.SetAppEventKey(verificationToken, ""),
-	)
-	conf := larkCore.NewConfig(larkCore.DomainFeiShu, appSettings)
+type Facade struct {
+	Conf  *config.Config
+	Bills biz.BillBiz
+	Ims   client.Im
+}
+
+func NewFeishu(appId, appSecret string) Feishu {
 	f := &feishu{
-		conf:  conf,
-		ims:   client.NewFeishuIm(conf),
-		bills: biz.NewBill(appId, appSecret),
+		apps: biz.NewApp(appId, appSecret),
+		mf:   map[string]*Facade{},
 	}
 
-	larkIm.SetMessageReceiveEventHandler(conf, f.imMessageReceiveV1)
+	for _, a := range f.apps.FindAll() {
+		if _, exist := f.mf[a.AppId]; !exist {
+			appSettings := larkCore.NewInternalAppSettings(
+				larkCore.SetAppCredentials(a.AppId, a.AppSecret),
+				larkCore.SetAppEventKey(a.VerificationToken, ""),
+			)
+			conf := larkCore.NewConfig(larkCore.DomainFeiShu, appSettings)
+
+			f.mf[a.AppId] = &Facade{
+				Conf:  conf,
+				Bills: biz.NewBill(appId, appSecret),
+				Ims:   client.NewFeishuIm(conf),
+			}
+			larkIm.SetMessageReceiveEventHandler(conf, f.imMessageReceiveV1)
+		}
+	}
+
 	return f
+}
+
+func (f *feishu) Register(ctx *gin.Context) {
+	var app model.App
+	err := ctx.ShouldBind(&app)
+	if err != nil {
+		_ = ctx.AbortWithError(500, err)
+		return
+	}
+	appId, err := f.apps.Save(&app)
+	appSettings := larkCore.NewInternalAppSettings(
+		larkCore.SetAppCredentials(app.AppId, app.AppSecret),
+		larkCore.SetAppEventKey(app.VerificationToken, ""),
+	)
+	conf := larkCore.NewConfig(larkCore.DomainFeiShu, appSettings)
+
+	f.mf[appId] = &Facade{
+		Conf:  conf,
+		Bills: biz.NewBill(app.AppId, app.AppSecret),
+		Ims:   client.NewFeishuIm(conf),
+	}
+	if err != nil {
+		_ = ctx.AbortWithError(500, err)
+		return
+	}
+	ctx.AbortWithStatus(200)
 }
 
 func (f *feishu) Webhook(ctx *gin.Context) {
@@ -50,7 +93,15 @@ func (f *feishu) Webhook(ctx *gin.Context) {
 		}
 		return
 	}
-	err = event.Handle(f.conf, req).WriteTo(ctx.Writer)
+	appId := ctx.Param("app_id")
+	facade, exist := f.mf[appId]
+	if !exist {
+		logrus.WithContext(ctx).Errorf("appId:%s not register", appId)
+		_ = ctx.AbortWithError(500, fmt.Errorf("appId:%s not register", appId))
+		return
+	}
+
+	err = event.Handle(facade.Conf, req).WriteTo(ctx.Writer)
 	if err != nil {
 		logrus.WithContext(ctx).WithError(err).Errorf("handle event error! req:%v", req)
 	}
@@ -65,8 +116,10 @@ func (f *feishu) imMessageReceiveV1(ctx *larkCore.Context, event *larkIm.Message
 		if err != nil {
 			return err
 		}
-		resMsg := f.bills.Record(event.Event.Sender.SenderId.OpenId, msg.Text)
-		mid, err := f.ims.ReplyTextMsg(ctx, event.Event.Message.MessageId, resMsg)
+		facade, _ := f.mf[event.Header.AppID]
+
+		resMsg := facade.Bills.Record(event.Event.Sender.SenderId.OpenId, msg.Text)
+		mid, err := facade.Ims.ReplyTextMsg(ctx, event.Event.Message.MessageId, resMsg)
 		if err != nil {
 			return err
 		}
