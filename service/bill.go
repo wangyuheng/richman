@@ -22,10 +22,10 @@ type billSvc struct {
 	books BookSvc
 }
 
-func NewBillSvc(appId, appSecret string) BillSvc {
+func NewBillSvc(appId, appSecret string, bookSvc BookSvc) BillSvc {
 	return &billSvc{
 		repo:  repo.NewBills(appId, appSecret),
-		books: NewBookSvc(appId, appSecret),
+		books: bookSvc,
 	}
 }
 
