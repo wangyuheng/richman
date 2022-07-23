@@ -25,9 +25,10 @@ type Wechat interface {
 }
 
 type wechat struct {
-	token   string
-	appSvc  service.AppSvc
-	bookSvc service.BookSvc
+	token     string
+	appSvc    service.AppSvc
+	authorSvc service.AuthorSvc
+	bookSvc   service.BookSvc
 }
 
 type WxReq struct {
@@ -59,11 +60,12 @@ type WxResp struct {
 	Content string `xml:"Content"`
 }
 
-func NewWechat(checkToken string, appSvc service.AppSvc, bookSvc service.BookSvc) Wechat {
+func NewWechat(checkToken string, appSvc service.AppSvc, authorSvc service.AuthorSvc, bookSvc service.BookSvc) Wechat {
 	w := &wechat{
-		token:   checkToken,
-		appSvc:  appSvc,
-		bookSvc: bookSvc,
+		token:     checkToken,
+		appSvc:    appSvc,
+		authorSvc: authorSvc,
+		bookSvc:   bookSvc,
 	}
 	return w
 }
@@ -94,6 +96,21 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, fmt.Sprintf("something is wrong with %s", p))
 		}
 	}()
+	req.Content = strings.TrimSpace(req.Content)
+	if strings.HasPrefix(req.Content, "wechat_r_") {
+		cmds := strings.Split(req.Content, "_r_")
+		_, _ = w.authorSvc.Save(&model.Author{
+			AppId:        cmds[1],
+			FeishuOpenId: cmds[3],
+			WechatOpenId: req.FromUserName,
+		}, model.CategoryWechat)
+		if _, err = w.bookSvc.Save(cmds[1], cmds[3], cmds[2], string(model.CategoryWechat)); err != nil {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, err.Error())
+			return
+		}
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, "绑定成功，可以开始记账啦 \r\n记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100")
+		return
+	}
 
 	if strings.Contains(req.Content, "app_secret") {
 		var app model.App
@@ -110,7 +127,12 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, fmt.Sprintf("绑定成功，开始使用吧。事件订阅地址\r\n%s/feishu/webhook/%s", config.GetConfig().SeverUrl, app.AppId))
 		return
 	}
-	// TODO
+	if author, exists := w.authorSvc.Get(req.FromUserName, model.CategoryWechat); exists {
+		msg := facades[author.AppId].BillSvc.Record(author.AppId, author.FeishuOpenId, req.Content, model.CategoryWechat)
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, msg)
+		return
+	}
+	w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, "没找到绑定的账号信息")
 	return
 }
 
@@ -120,13 +142,14 @@ func (w *wechat) register(app model.App) error {
 		return err
 
 	}
-	err = register(app, w.bookSvc)
+	err = register(app, w.authorSvc, w.bookSvc)
 	if err != nil {
 		return err
 
 	}
 	return nil
 }
+
 func (w *wechat) returnTextMsg(ctx *gin.Context, from, to, content string) {
 	res, _ := xml.Marshal(WxResp{
 		ToUserName:   to,

@@ -17,23 +17,25 @@ import (
 var facades = map[string]*Facade{}
 
 type Facade struct {
-	Conf    *config.Config
-	appSvc  service.AppSvc
+	Conf      *config.Config
+	appSvc    service.AppSvc
+	authorSvc service.AuthorSvc
+
 	BillSvc service.BillSvc
 	Ims     client.Im
 }
 
-func Init(appSvc service.AppSvc, bookSvc service.BookSvc) {
+func Init(appSvc service.AppSvc, authorSvc service.AuthorSvc, bookSvc service.BookSvc) {
 	for _, a := range appSvc.FindAll() {
 		if a.AppId != "" {
 			if _, exist := facades[a.AppId]; !exist {
-				_ = register(*a, bookSvc)
+				_ = register(*a, authorSvc, bookSvc)
 			}
 		}
 	}
 }
 
-func register(app model.App, bookSvc service.BookSvc) error {
+func register(app model.App, authorSvc service.AuthorSvc, bookSvc service.BookSvc) error {
 	appSettings := larkCore.NewInternalAppSettings(
 		larkCore.SetAppCredentials(app.AppId, app.AppSecret),
 		larkCore.SetAppEventKey(app.VerificationToken, ""),
@@ -41,9 +43,10 @@ func register(app model.App, bookSvc service.BookSvc) error {
 	conf := larkCore.NewConfig(larkCore.DomainFeiShu, appSettings)
 
 	facades[app.AppId] = &Facade{
-		Conf:    conf,
-		BillSvc: service.NewBillSvc(app.AppId, app.AppSecret, bookSvc),
-		Ims:     client.NewFeishuIm(conf),
+		Conf:      conf,
+		authorSvc: authorSvc,
+		BillSvc:   service.NewBillSvc(app.AppId, app.AppSecret, bookSvc),
+		Ims:       client.NewFeishuIm(conf),
 	}
 	larkIm.SetMessageReceiveEventHandler(conf, imMessageReceiveV1)
 
@@ -66,7 +69,7 @@ func imMessageReceiveV1(ctx *larkCore.Context, event *larkIm.MessageReceiveEvent
 		}
 		facade, _ := facades[event.Header.AppID]
 
-		resMsg := facade.BillSvc.Record(event.Event.Sender.SenderId.OpenId, msg.Text)
+		resMsg := facade.BillSvc.Record(event.Header.AppID, event.Event.Sender.SenderId.OpenId, msg.Text, model.CategoryFeishu)
 		mid, err := facade.Ims.ReplyTextMsg(ctx, event.Event.Message.MessageId, resMsg)
 		if err != nil {
 			return err

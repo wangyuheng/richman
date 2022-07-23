@@ -12,8 +12,6 @@ import (
 )
 
 func main() {
-	//env()
-
 	cfg := config.Load()
 	logrus.SetLevel(cfg.LogLevel)
 
@@ -28,9 +26,10 @@ func main() {
 func register(r *gin.Engine) {
 	cfg := config.GetConfig()
 	appSvc := service.NewAppSvc(cfg.DbAppId, cfg.DbAppSecret)
+	authorSvc := service.NewAuthorSvc(cfg.DbAppId, cfg.DbAppSecret)
 	bookSvc := service.NewBookSvc(cfg.DbAppId, cfg.DbAppSecret)
 
-	handle.Init(appSvc, bookSvc)
+	handle.Init(appSvc, authorSvc, bookSvc)
 
 	feishu := handle.NewFeishu(appSvc, bookSvc)
 	f := r.Group("/feishu")
@@ -38,13 +37,13 @@ func register(r *gin.Engine) {
 		f.POST("/webhook/:app_id", feishu.Webhook)
 	}
 
-	admin := handle.NewAdmin(appSvc, bookSvc)
+	admin := handle.NewAdmin(appSvc, authorSvc, bookSvc)
 	a := r.Group("/admin")
 	{
 		a.POST("/register", admin.Register)
 	}
 
-	wechat := handle.NewWechat(cfg.WechatToken, appSvc, bookSvc)
+	wechat := handle.NewWechat(cfg.WechatToken, appSvc, authorSvc, bookSvc)
 	wx := r.Group("/wx")
 	{
 		wx.GET("/", wechat.CheckSignature)

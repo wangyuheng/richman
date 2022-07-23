@@ -13,7 +13,7 @@ import (
 )
 
 type BillSvc interface {
-	Record(authorID, cmd string) string
+	Record(appId, authorId, cmd string, category model.Category) string
 	GetCategory(appToken, remark string) []string
 }
 
@@ -29,9 +29,9 @@ func NewBillSvc(appId, appSecret string, bookSvc BookSvc) BillSvc {
 	}
 }
 
-func (b *billSvc) Record(authorID, content string) string {
+func (b *billSvc) Record(appId, authorId, content string, category model.Category) string {
 	cmds := strings.Split(strings.TrimSpace(content), " ")
-	appToken, exists := b.books.GetAppTokenByOpenId(authorID)
+	book, exists := b.books.GetByOpenId(authorId)
 	if len(cmds) != 1 && !exists {
 		return fmt.Sprintf("请先绑定菜单。可以把记账文档发给我. 如%s", "https://richman.feishu.cn/base/bascnzqgwKBqIQxp272MoZh1fhd")
 	}
@@ -40,13 +40,24 @@ func (b *billSvc) Record(authorID, content string) string {
 		cmd := cmds[0]
 		switch cmd {
 		case "账单":
-			return fmt.Sprintf("https://richman.feishu.cn/base/%s", appToken)
+			return fmt.Sprintf("https://richman.feishu.cn/base/%s", book.AppToken)
+		case "微信", "wechat", "wx", "weixin":
+			return "wechat_r_" + appId + "_r_" + book.AppToken + "_r_" + authorId
 		default:
-			_, err := b.books.Save(authorID, cmd)
+			ss := strings.Split(cmd, "feishu.cn/base/")
+			if len(ss) < 2 {
+				return fmt.Sprintf("url[%s] format illegal", cmd)
+			}
+			s := ss[1]
+			l := strings.Index(s, "?")
+			if l2 := strings.Index(s, "/"); l2 > 0 && l2 < l {
+				l = l2
+			}
+			_, err := b.books.Save(appId, authorId, s[0:l], string(category))
 			if err != nil {
 				return err.Error()
 			}
-			return "绑定成功，可以开始记账啦 \r\n记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100\""
+			return "绑定成功，可以开始记账啦 \r\n记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100"
 		}
 	case 2:
 		remark := cmds[0]
@@ -54,19 +65,19 @@ func (b *billSvc) Record(authorID, content string) string {
 		if err != nil {
 			return err.Error()
 		}
-		categories := b.GetCategory(appToken, remark)
+		categories := b.GetCategory(book.AppToken, remark)
 		if len(categories) == 0 {
 			return fmt.Sprintf("猜不出【%s】是什么分类。先按照完整格式提交一下，下次我就记住了。 \r\n 格式： 备注 分类 金额。比如： 泡面 餐费 100", remark)
 		}
-		err = b.repo.Save(appToken, &model.Bill{
+		err = b.repo.Save(book.AppToken, &model.Bill{
 			Remark:     remark,
 			Categories: categories,
 			Amount:     amount,
 			Expenses:   expenses,
-			AuthorID:   authorID,
+			AuthorID:   authorId,
 		})
 		if err == nil {
-			return fmt.Sprintf("记账成功。本月已支出 %.2f", b.curMonthTotal(appToken))
+			return fmt.Sprintf("记账成功。本月已支出 %.2f", b.curMonthTotal(book.AppToken))
 		}
 		return err.Error()
 	case 3:
@@ -76,15 +87,15 @@ func (b *billSvc) Record(authorID, content string) string {
 			return err.Error()
 		}
 		categories := []string{cmds[1]}
-		err = b.repo.Save(appToken, &model.Bill{
+		err = b.repo.Save(book.AppToken, &model.Bill{
 			Remark:     remark,
 			Categories: categories,
 			Amount:     amount,
 			Expenses:   expenses,
-			AuthorID:   authorID,
+			AuthorID:   authorId,
 		})
 		if err == nil {
-			return fmt.Sprintf("记账成功。本月已支出 %.2f", b.curMonthTotal(appToken))
+			return fmt.Sprintf("记账成功。本月已支出 %.2f", b.curMonthTotal(book.AppToken))
 		}
 		return err.Error()
 	default:
@@ -117,13 +128,19 @@ func (b *billSvc) GetCategory(appToken, remark string) []string {
 		has := make(map[string]bool)
 		res := make([]string, 0)
 
-		for _, c := range records[0].Categories {
-			if has[c] {
-				continue
+		for _, r := range records {
+			if len(r.Categories) > 0 {
+				for _, c := range r.Categories {
+					if has[c] {
+						continue
+					}
+					has[c] = true
+					res = append(res, c)
+					break
+				}
 			}
-			has[c] = true
-			res = append(res, c)
 		}
+
 		return res
 	}
 	return nil

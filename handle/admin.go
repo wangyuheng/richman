@@ -11,12 +11,13 @@ type Admin interface {
 }
 
 type admin struct {
-	appSvc  service.AppSvc
-	bookSvc service.BookSvc
+	appSvc    service.AppSvc
+	authorSvc service.AuthorSvc
+	bookSvc   service.BookSvc
 }
 
-func NewAdmin(appSvc service.AppSvc, bookSvc service.BookSvc) Admin {
-	return &admin{appSvc, bookSvc}
+func NewAdmin(appSvc service.AppSvc, authorSvc service.AuthorSvc, bookSvc service.BookSvc) Admin {
+	return &admin{appSvc, authorSvc, bookSvc}
 }
 
 func (a *admin) Register(ctx *gin.Context) {
@@ -31,7 +32,7 @@ func (a *admin) Register(ctx *gin.Context) {
 		_ = ctx.AbortWithError(500, err)
 		return
 	}
-	err = register(app, a.bookSvc)
+	err = register(app, a.authorSvc, a.bookSvc)
 	if err != nil {
 		_ = ctx.AbortWithError(500, err)
 		return
