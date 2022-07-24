@@ -1,17 +1,17 @@
 ### feishu challenge
 
-POST {{domain}}/feishu/webhook/cli_9f5343c580712533
+POST {{domain}}/feishu/webhook/{{app_id}}
 Content-Type: application/json
 
 {
   "CHALLENGE": "abc",
   "Type": "url_verification",
-  "Token": "0vYb8D8VrlSRFzPZN5m0cbqhnNzQ2Tpz"
+  "Token": "{{verification_token}}"
 }
 
 ### feishu im.message.receive_v1
 
-POST {{domain}}/feishu/webhook/cli_9f5343c580712533
+POST {{domain}}/feishu/webhook/{{app_id}}
 Content-Type: application/json
 
 {
@@ -20,9 +20,9 @@ Content-Type: application/json
         "event_id": "5e3702a84e847582be8db7fb73283c02",
         "event_type": "im.message.receive_v1",
         "create_time": "1608725989000",
-        "token": "0vYb8D8VrlSRFzPZN5m0cbqhnNaB2Tpz",
-        "app_id": "cli_9f5343c580712533",
-        "tenant_key": "2ca1d211f64f6424",
+        "token": "{{verification_token}}",
+        "app_id": "{{app_id}}",
+        "tenant_key": "2ca1d211f64f6424"
     },
     "event": {
         "sender": {
@@ -46,4 +46,3 @@ Content-Type: application/json
         }
     }
 }
-###

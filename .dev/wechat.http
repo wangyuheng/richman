@@ -1,0 +1,28 @@
+### wechat
+
+POST {{domain}}/wx
+Content-Type: application/xml
+
+<xml>
+    <URL>
+        <![CDATA[1]]>
+    </URL>
+    <ToUserName>
+        <![CDATA[2]]>
+    </ToUserName>
+    <FromUserName>
+        <![CDATA[oU3NruP2Z-SXoUHPmanUzFqK9Gkw2]]>
+    </FromUserName>
+    <CreateTime>4</CreateTime>
+    <MsgType>
+        <![CDATA[text]]>
+    </MsgType>
+    <Content>
+        <![CDATA[{
+    "app_id": "{{app_id}}",
+    "app_secret": "{{app_secret}}",
+    "verification_token": "{{verification_token}}"
+}]]>
+    </Content>
+    <MsgId>6</MsgId>
+</xml>

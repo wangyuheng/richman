@@ -1,0 +1,10 @@
+### register
+
+POST {{domain}}/admin/register
+Content-Type: application/json
+
+{
+  "id": "{{app_id}}",
+  "secret": "{{app_secret}}",
+  "token": "{{verification_token}}"
+}

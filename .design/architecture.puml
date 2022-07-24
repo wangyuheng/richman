@@ -1,0 +1,32 @@
+@startuml
+
+component {
+    control Richman
+    Database DB <<bitable>>
+
+    Richman -down-> DB
+}
+component Wechat {
+    node Subscription
+}
+component Feishu {
+    node Bot
+    node Bitable
+    node Event
+
+    Bot .right.> Event:trigger
+
+
+}
+Event -up-> Richman:webhook
+Richman -up-> Bitable:OpenAPI
+Richman -up-> Bot:OpenAPI
+
+actor User
+
+User -down-> Bot:send message
+User -down-> Subscription:send message
+
+Subscription -down-> Richman:webhook
+
+@enduml
