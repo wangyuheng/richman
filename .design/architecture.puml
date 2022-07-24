@@ -3,7 +3,7 @@
 component {
     control Richman
     Database DB <<bitable>>
-
+    node Bill <<bitable>>
     Richman -down-> DB
 }
 component Wechat {
@@ -11,7 +11,6 @@ component Wechat {
 }
 component Feishu {
     node Bot
-    node Bitable
     node Event
 
     Bot .right.> Event:trigger
@@ -19,7 +18,7 @@ component Feishu {
 
 }
 Event -up-> Richman:webhook
-Richman -up-> Bitable:OpenAPI
+Richman -down-> Bill:OpenAPI
 Richman -up-> Bot:OpenAPI
 
 actor User
