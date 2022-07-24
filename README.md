@@ -2,25 +2,50 @@
 
 基于飞书多维表格(bitable)实现的记账机器人。
 
+![architecture](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/geeklubcn/richman/master/.design/architecture.puml)
+
 ## 飞书机器人
 
 - 视频教程: https://www.bilibili.com/video/BV1AY411K7rn
 - 文字教程: https://www.bilibili.com/read/cv17318657
 
-### 使用方式
+![flow](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/geeklubcn/richman/master/.design/flow.puml)
+
+## 微信公众号
+
+搜索并关注 `莫比乌斯的code`
+
+![flow](https://raw.githubusercontent.com/geeklubcn/richman/master/.design/qrcode.jpg)
+
+### 获取事件回调地址
+
+向公众号发送消息，获取回调地址URL
+```json
+{
+    "id":"cli_a2513784b578530c",
+    "secret":"DEieGDn72PusZ7lSGT7Gec3XOtgyRQhg",
+    "token":"iejPgIsMMneCnyOBhbZ6hhCTs05YJDhb"
+}
+```
+
+### 绑定账本
+
+- 向飞书机器人发送`wx`获取`bindToken`
+- 将`bindToken`发给公众号，完成绑定
+
+### 开发
 
 设置环境变量。
 
 - LARK_APP_ID: 对应飞书开放平台 -> 开发者后台 -> 应用凭证 -> APP ID
 - LARK_APP_SECRET: 对应飞书开放平台 -> 开发者后台 -> 应用凭证 -> App Secret
-- LARK_APP_VERIFICATION_TOKEN: 对应飞书开放平台 -> 开发者后台 -> 事件订阅 -> Verification Token
-
+- SEVER_URL: 服务公网域名，用于生成回调地址
 比如
 
 ```shell
 LARK_APP_ID=cli_a232fc4bceb8100b
 LARK_APP_SECRET=AWkBwpc15kgsCOWf7Y7KQcCJyAdM1Clx
-LARK_APP_VERIFICATION_TOKEN=lqfwcLQ2msJvhDZD8Z5JibXB7fq8tTaD
+SEVER_URL=https://richman.geeklub.cn
 ```
 
 如果是测试环境，可以直接在`env.go`文件中修改，生产环境建议通过系统环境变量进行设置。
@@ -40,9 +65,9 @@ curl --location --request POST 'localhost:8080/feishu/webhook' \
         "event_id": "5e3702a84e847582be8db7fb73283c02",
         "event_type": "im.message.receive_v1",
         "create_time": "1608725989000",
-        "token": "0vYb8D8VrlSRFzPZN5m0cbqhnNaB2Tpz",
-        "app_id": "cli_9f5343c580712533",
-        "tenant_key": "2ca1d211f64f6424",
+        "token": "{{verification_token}}",
+        "app_id": "{{app_id}}",
+        "tenant_key": "2ca1d211f64f6424"
     },
     "event": {
         "sender": {
@@ -68,10 +93,6 @@ curl --location --request POST 'localhost:8080/feishu/webhook' \
 }'
 ```
 
-## 微信公众号
-
-Coming Soon
-
 ## Docker
 
 使用
@@ -79,7 +100,6 @@ Coming Soon
 docker run -e "LARK_APP_ID=cli_a232fc4bceb8100b" \
 -e "LARK_APP_SECRET=AWkBwpc15kgsCOWf7Y7KQcCJyAdM1Clx" \
 -e "LARK_APP_TOKEN=bascnZkP4JxAWoFuO8R6LUJABme" \
--e "LARK_APP_VERIFICATION_TOKEN=lqfwcLQ2msJvhDZD8Z5JibXB7fq8tTaD" \
 geeklubcn/richman:v1 
 ```
 

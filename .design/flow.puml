@@ -1,0 +1,14 @@
+@startuml
+
+actor User
+
+User -> BOT: send msg to bot
+BOT -> Richman: webhook msg
+Database "DB<<Bitable>>" as DB
+Richman -> DB: get config by app_id
+Richman -> DB: get appToken by open_id
+Richman -> Bitable: save bill record
+Richman -> BOT: reply msg
+BOT -> User: reply msg
+
+@enduml

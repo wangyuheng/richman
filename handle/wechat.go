@@ -112,7 +112,9 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		return
 	}
 
-	if strings.Contains(req.Content, "app_secret") {
+	if strings.Contains(req.Content, "id") &&
+		strings.Contains(req.Content, "secret") &&
+		strings.Contains(req.Content, "token") {
 		var app model.App
 		err = json.Unmarshal([]byte(req.Content), &app)
 		if err != nil {
