@@ -17,6 +17,9 @@ func main() {
 
 	logrus.Debugf("load config. %+v", cfg)
 	r := gin.New()
+	r.Use(gin.Logger())
+	r.Use(gin.Recovery())
+
 	register(r)
 	if err := r.Run(); err != nil {
 		log.Fatal(err)
