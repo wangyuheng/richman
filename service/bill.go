@@ -136,8 +136,8 @@ func (b *billSvc) GetCategory(appToken, remark string) []string {
 					}
 					has[c] = true
 					res = append(res, c)
-					break
 				}
+				return res
 			}
 		}
 
