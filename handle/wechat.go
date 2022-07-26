@@ -97,6 +97,7 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		}
 	}()
 	req.Content = strings.TrimSpace(req.Content)
+	req.Content = strings.ReplaceAll(req.Content, " ", " ")
 	if strings.HasPrefix(req.Content, "wechat_r_") {
 		cmds := strings.Split(req.Content, "_r_")
 		_, _ = w.authorSvc.Save(&model.Author{
