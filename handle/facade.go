@@ -3,10 +3,10 @@ package handle
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/geeklubcn/richman/client"
 	"github.com/geeklubcn/richman/model"
 	"github.com/geeklubcn/richman/service"
+	"github.com/hashicorp/golang-lru"
 	larkCore "github.com/larksuite/oapi-sdk-go/core"
 	"github.com/larksuite/oapi-sdk-go/core/config"
 	"github.com/larksuite/oapi-sdk-go/core/tools"
@@ -15,6 +15,7 @@ import (
 )
 
 var facades = map[string]*Facade{}
+var idempotent *lru.Cache
 
 type Facade struct {
 	Conf      *config.Config
@@ -26,6 +27,7 @@ type Facade struct {
 }
 
 func Init(appSvc service.AppSvc, authorSvc service.AuthorSvc, bookSvc service.BookSvc) {
+	idempotent, _ = lru.New(256)
 	for _, a := range appSvc.FindAll() {
 		if a.AppId != "" {
 			if _, exist := facades[a.AppId]; !exist {
@@ -60,6 +62,12 @@ func imMessageReceiveV1(ctx *larkCore.Context, event *larkIm.MessageReceiveEvent
 		}
 	}()
 	logrus.WithContext(ctx).Infof("receive event:%+v", tools.Prettify(event))
+	if idempotent.Contains(event.Header.EventID) {
+		logrus.WithContext(ctx).Infof("ignore repeat event:%+v", tools.Prettify(event))
+		return nil
+	}
+	idempotent.Add(event.Header.EventID, true)
+
 	switch event.Event.Message.MessageType {
 	case client.MsgTypeText:
 		var msg client.TextMsg
