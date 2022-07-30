@@ -119,7 +119,7 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		var app model.App
 		err = json.Unmarshal([]byte(req.Content), &app)
 		if err != nil {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, err.Error())
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, "json格式不正确，可以按照这个格式修改 {\"id\":\"cli_a257f60e6bbab00c\",\"secret\":\"TVhkohuKkamGFU3cabXuFhdlLoS3EwhL\",\"token\":\"OzCFbkwGSckR6vo1pM4L7c8HU3j0MoeP\"}")
 			return
 		}
 		err = w.register(app)
