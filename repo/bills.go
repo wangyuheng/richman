@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/geeklubcn/richman/client"
+
 	"github.com/geeklubcn/richman/model"
 
 	"github.com/geeklubcn/feishu-bitable-db/db"
@@ -34,13 +36,17 @@ type Bills interface {
 }
 
 type bills struct {
-	db    db.DB
-	cache sync.Map
+	db      db.DB
+	bitable client.Bitable
+	cache   sync.Map
 }
 
-func NewBills(appId, appSecret string) Bills {
+func NewBills(appId, appSecret string, bitable client.Bitable) Bills {
 	d, _ := db.NewDB(appId, appSecret)
-	return &bills{db: d}
+	return &bills{
+		db:      d,
+		bitable: bitable,
+	}
 }
 
 func (b *bills) Search(appToken string, ss []db.SearchCmd) []*model.Bill {
@@ -95,13 +101,31 @@ func (b *bills) Save(appToken string, bill *model.Bill) error {
 	if bill.Expenses == "" {
 		bill.Expenses = Pay
 	}
+
+	fm := b.bitable.ListFields(ctx, appToken, billTable)
+	author := BillTableAuthor
+	var categoryV interface{}
+
+	for _, f := range fm {
+		if f.Type == 11 {
+			author = f.FieldName
+		}
+		if f.FieldName == BillTableCategory {
+			if f.Type == 3 {
+				categoryV = bill.Categories[0]
+			} else {
+				categoryV = bill.Categories
+			}
+		}
+	}
+
 	_, err := b.db.Create(ctx, appToken, billTable, map[string]interface{}{
 		BillTableRemark:   bill.Remark,
-		BillTableCategory: bill.Categories,
+		BillTableCategory: categoryV,
 		BillTableAmount:   bill.Amount,
 		BillTableDate:     bill.Date,
 		BillTableExpenses: bill.Expenses,
-		BillTableAuthor: []map[string]string{
+		author: []map[string]string{
 			{
 				"id": bill.AuthorID,
 			},

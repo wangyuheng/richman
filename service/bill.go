@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/geeklubcn/richman/client"
+
 	"github.com/geeklubcn/richman/model"
 
 	"github.com/geeklubcn/feishu-bitable-db/db"
@@ -22,9 +24,9 @@ type billSvc struct {
 	books BookSvc
 }
 
-func NewBillSvc(appId, appSecret string, bookSvc BookSvc) BillSvc {
+func NewBillSvc(appId, appSecret string, bookSvc BookSvc, bitable client.Bitable) BillSvc {
 	return &billSvc{
-		repo:  repo.NewBills(appId, appSecret),
+		repo:  repo.NewBills(appId, appSecret, bitable),
 		books: bookSvc,
 	}
 }

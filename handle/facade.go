@@ -3,6 +3,7 @@ package handle
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/geeklubcn/richman/client"
 	"github.com/geeklubcn/richman/model"
 	"github.com/geeklubcn/richman/service"
@@ -47,7 +48,7 @@ func register(app model.App, authorSvc service.AuthorSvc, bookSvc service.BookSv
 	facades[app.AppId] = &Facade{
 		Conf:      conf,
 		authorSvc: authorSvc,
-		BillSvc:   service.NewBillSvc(app.AppId, app.AppSecret, bookSvc),
+		BillSvc:   service.NewBillSvc(app.AppId, app.AppSecret, bookSvc, client.NewBitable(conf)),
 		Ims:       client.NewFeishuIm(conf),
 	}
 	larkIm.SetMessageReceiveEventHandler(conf, imMessageReceiveV1)
