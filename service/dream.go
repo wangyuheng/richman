@@ -29,6 +29,7 @@ const (
 )
 
 type DreamSvc interface {
+	ListDream(appToken string) []*model.Dream
 	GetDream(appToken, keyword string) (*model.Dream, bool)
 	Save(appToken string, m *model.Dream) (string, error)
 	Record(appToken string, m *model.DreamRecord) (*model.Dream, error)
@@ -44,6 +45,34 @@ type dreamSvc struct {
 	db      db.DB
 	bitable client.Bitable
 	cache   sync.Map
+}
+
+func (d *dreamSvc) ListDream(appToken string) []*model.Dream {
+	ctx := context.Background()
+
+	rs := d.db.Read(ctx, appToken, dreamTable, []db.SearchCmd{})
+	if len(rs) == 0 {
+		return nil
+	}
+	ds := make([]*model.Dream, 0)
+
+	for _, r := range rs {
+		res := &model.Dream{
+			Keyword: r[dreamKeyword].(string),
+		}
+		if r[dreamTarget] != nil {
+			res.Target, _ = strconv.ParseFloat(r[dreamTarget].(string), 10)
+		}
+
+		if r[dreamCurVal] != nil {
+			res.CurVal, _ = strconv.ParseFloat(r[dreamCurVal].(string), 10)
+		}
+
+		res.Progress = fmt.Sprintf("%.2f%%", res.CurVal*100/res.Target)
+		res.Id = r[db.ID].(string)
+		ds = append(ds, res)
+	}
+	return ds
 }
 
 func (d *dreamSvc) GetDream(appToken, keyword string) (*model.Dream, bool) {
@@ -65,7 +94,7 @@ func (d *dreamSvc) GetDream(appToken, keyword string) (*model.Dream, bool) {
 	}
 
 	if r[dreamCurVal] != nil {
-		res.CurVal, _ = strconv.ParseFloat(r[dreamTarget].(string), 10)
+		res.CurVal, _ = strconv.ParseFloat(r[dreamCurVal].(string), 10)
 	}
 
 	res.Progress = fmt.Sprintf("%.2f%%", res.CurVal*100/res.Target)

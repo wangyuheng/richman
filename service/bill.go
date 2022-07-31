@@ -41,8 +41,18 @@ func (b *billSvc) Record(appId, authorId, content string, category model.Categor
 	}
 	switch len(cmds) {
 	case 1:
-		cmd := cmds[0]
+		cmd := strings.ToLower(cmds[0])
 		switch cmd {
+		case "dream", "dreams":
+			ds := b.dreamSvc.ListDream(book.AppToken)
+			if len(ds) == 0 {
+				return fmt.Sprintf("还未添加。dream格式为： dream keyword targetVal initVal。 \r\n 比如： dream home 100 1")
+			}
+			msgs := make([]string, 0)
+			for _, d := range ds {
+				msgs = append(msgs, fmt.Sprintf("%s 当前进展:%s. 目标:%.1f, 当前:%.1f", d.Keyword, d.Progress, d.Target, d.CurVal))
+			}
+			return strings.Join(msgs, "\r\n")
 		case "账单":
 			return fmt.Sprintf("https://richman.feishu.cn/base/%s", book.AppToken)
 		case "微信", "wechat", "wx", "weixin":
