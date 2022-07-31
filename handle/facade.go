@@ -45,10 +45,11 @@ func register(app model.App, authorSvc service.AuthorSvc, bookSvc service.BookSv
 	)
 	conf := larkCore.NewConfig(larkCore.DomainFeiShu, appSettings)
 
+	bitable := client.NewBitable(conf)
 	facades[app.AppId] = &Facade{
 		Conf:      conf,
 		authorSvc: authorSvc,
-		BillSvc:   service.NewBillSvc(app.AppId, app.AppSecret, bookSvc, client.NewBitable(conf)),
+		BillSvc:   service.NewBillSvc(app.AppId, app.AppSecret, bookSvc, service.NewDreamSvc(app.AppId, app.AppSecret, bitable), bitable),
 		Ims:       client.NewFeishuIm(conf),
 	}
 	larkIm.SetMessageReceiveEventHandler(conf, imMessageReceiveV1)

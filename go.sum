@@ -112,6 +112,8 @@ github.com/fsnotify/fsnotify v1.5.1 h1:mZcQUHVQUQWoPXXtuf9yuEXKudkV2sx1E06UadKWp
 github.com/fsnotify/fsnotify v1.5.1/go.mod h1:T3375wBYaZdLLcVNkcVbzGHY7f1l/uK5T5Ai1i3InKU=
 github.com/geeklubcn/feishu-bitable-db v0.0.0-20220710055450-bb03ef23f714 h1:IJs6ikeioCIQYPdvsNDkEgY8LH0vyfOEDc2KZEHKvjI=
 github.com/geeklubcn/feishu-bitable-db v0.0.0-20220710055450-bb03ef23f714/go.mod h1:wym9ENASP8VsZNPzPv6GD4+LRRtBUZwCX9dSAKQTNCE=
+github.com/geeklubcn/feishu-bitable-db v0.0.0-20220731073323-0d8b8958551e h1:nl6LCH6JtsbZa51IXji3nrbHI/OFDyCyDWtBXTnWDH0=
+github.com/geeklubcn/feishu-bitable-db v0.0.0-20220731073323-0d8b8958551e/go.mod h1:wym9ENASP8VsZNPzPv6GD4+LRRtBUZwCX9dSAKQTNCE=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
 github.com/gin-contrib/sse v0.1.0/go.mod h1:RHrZQHXnP2xjPF+u1gW/2HnVO7nvIa9PG3Gm+fLHvGI=

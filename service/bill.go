@@ -20,14 +20,16 @@ type BillSvc interface {
 }
 
 type billSvc struct {
-	repo  repo.Bills
-	books BookSvc
+	repo     repo.Bills
+	books    BookSvc
+	dreamSvc DreamSvc
 }
 
-func NewBillSvc(appId, appSecret string, bookSvc BookSvc, bitable client.Bitable) BillSvc {
+func NewBillSvc(appId, appSecret string, bookSvc BookSvc, dreamSvc DreamSvc, bitable client.Bitable) BillSvc {
 	return &billSvc{
-		repo:  repo.NewBills(appId, appSecret, bitable),
-		books: bookSvc,
+		repo:     repo.NewBills(appId, appSecret, bitable),
+		books:    bookSvc,
+		dreamSvc: dreamSvc,
 	}
 }
 
@@ -84,6 +86,22 @@ func (b *billSvc) Record(appId, authorId, content string, category model.Categor
 		return err.Error()
 	case 3:
 		remark := cmds[0]
+		if remark == "dream" {
+			keyword := cmds[1]
+
+			amount, _, _ := b.parseAmount(cmds[2])
+			res, err := b.dreamSvc.Record(book.AppToken, &model.DreamRecord{
+				Keyword: keyword,
+				Amount:  amount,
+				Maker:   authorId,
+			})
+			if err != nil {
+				return err.Error()
+			}
+			return fmt.Sprintf("为了%s努力吧。\r\n进展%s\r\n目标:%f\r\n当前:%f", keyword, res.Progress, res.Target, res.CurVal)
+
+		}
+
 		amount, expenses, err := b.parseAmount(cmds[2])
 		if err != nil {
 			return err.Error()
@@ -100,6 +118,32 @@ func (b *billSvc) Record(appId, authorId, content string, category model.Categor
 			return fmt.Sprintf("记账成功。本月已支出 %.2f", b.curMonthTotal(book.AppToken))
 		}
 		return err.Error()
+	case 4: // dream #keyword #target #init
+		if strings.ToLower(cmds[0]) != "dream" {
+			return fmt.Sprintf("格式错误。dream格式为： dream keyword targetVal initVal。 \r\n 比如： dream home 100 1")
+		}
+		keyword := cmds[1]
+
+		targetV, err := strconv.ParseFloat(cmds[2], 10)
+		if err != nil {
+			return err.Error()
+		}
+		initV, err := strconv.ParseFloat(cmds[3], 10)
+		if err != nil {
+			return err.Error()
+		}
+		progressV := fmt.Sprintf("%.2f%%", initV*100/targetV)
+
+		_, err = b.dreamSvc.Save(book.AppToken, &model.Dream{
+			Keyword:  keyword,
+			Target:   targetV,
+			CurVal:   initV,
+			Progress: progressV,
+		})
+		if err != nil {
+			return err.Error()
+		}
+		return fmt.Sprintf("为了%s努力吧。\r\n进展%s\r\n目标:%f\r\n当前:%f", keyword, progressV, targetV, initV)
 	default:
 		return fmt.Sprintf("格式错误。记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100")
 	}

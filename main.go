@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 
+	"github.com/geeklubcn/richman/mw"
+
 	"github.com/geeklubcn/richman/service"
 
 	"github.com/geeklubcn/richman/config"
@@ -19,6 +21,7 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
+	r.Use(mw.Access())
 
 	register(r)
 	if err := r.Run(); err != nil {

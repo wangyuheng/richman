@@ -35,3 +35,19 @@ type Book struct {
 	OpenId   string   `json:"open_id"`
 	Category Category `json:"category"`
 }
+
+type Dream struct {
+	Id       string  `json:"id"`
+	Keyword  string  `json:"keyword"`
+	Target   float64 `json:"target"`
+	CurVal   float64 `json:"cur_val"`
+	Progress string  `json:"progress"`
+}
+
+type DreamRecord struct {
+	Id      string  `json:"id"`
+	Keyword string  `json:"keyword"`
+	Amount  float64 `json:"amount"`
+	Date    int64   `json:"date"`
+	Maker   string  `json:"maker"`
+}
