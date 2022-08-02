@@ -17,6 +17,7 @@ import (
 type BillSvc interface {
 	Record(appId, authorId, cmd string, category model.Category) string
 	GetCategory(appToken, remark string) []string
+	ListCategory(appToken string) []string
 }
 
 type billSvc struct {
@@ -41,7 +42,7 @@ func (b *billSvc) Record(appId, authorId, content string, category model.Categor
 	}
 	switch len(cmds) {
 	case 1:
-		cmd := strings.ToLower(cmds[0])
+		cmd := cmds[0]
 		switch cmd {
 		case "dream", "dreams":
 			ds := b.dreamSvc.ListDream(book.AppToken)
@@ -53,6 +54,9 @@ func (b *billSvc) Record(appId, authorId, content string, category model.Categor
 				msgs = append(msgs, fmt.Sprintf("%s 当前进展:%s. 目标:%.1f, 当前:%.1f", d.Keyword, d.Progress, d.Target, d.CurVal))
 			}
 			return strings.Join(msgs, "\r\n")
+		case "分类":
+			cs := b.ListCategory(book.AppToken)
+			return strings.Join(cs, "\r\n")
 		case "账单":
 			return fmt.Sprintf("https://richman.feishu.cn/base/%s", book.AppToken)
 		case "微信", "wechat", "wx", "weixin":
@@ -169,6 +173,30 @@ func (b *billSvc) parseAmount(cmd string) (amount float64, expenses string, err 
 		return 0, "", fmt.Errorf("金额格式错误。%s", cmd)
 	}
 	return amount, expenses, err
+}
+
+func (b *billSvc) ListCategory(appToken string) []string {
+	records := b.repo.Search(appToken, []db.SearchCmd{})
+	// distinct
+	if len(records) > 0 {
+		has := make(map[string]bool)
+		res := make([]string, 0)
+
+		for _, r := range records {
+			if len(r.Categories) > 0 {
+				for _, c := range r.Categories {
+					if has[c] {
+						continue
+					}
+					has[c] = true
+					res = append(res, c)
+				}
+			}
+		}
+
+		return res
+	}
+	return nil
 }
 
 func (b *billSvc) GetCategory(appToken, remark string) []string {
