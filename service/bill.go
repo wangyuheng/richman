@@ -157,6 +157,14 @@ func (b *billSvc) Record(appId, authorId, content string, category model.Categor
 		if err != nil {
 			return err.Error()
 		}
+		_, err = b.dreamSvc.Record(book.AppToken, &model.DreamRecord{
+			Keyword: keyword,
+			Amount:  initV,
+			Maker:   authorId,
+		})
+		if err != nil {
+			return err.Error()
+		}
 		return fmt.Sprintf("为了%s努力吧。\r\n进展%s\r\n目标:%f\r\n当前:%f", keyword, progressV, targetV, initV)
 	default:
 		return fmt.Sprintf("格式错误。记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100")
