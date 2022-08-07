@@ -1,4 +1,8 @@
-# richman
+# Richman
+
+<p align="center">
+    <img src=".design/logo.png">
+</p>
 
 基于飞书多维表格(bitable)实现的记账机器人。
 
