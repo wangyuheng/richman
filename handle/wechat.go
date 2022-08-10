@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/geeklubcn/richman/config"
 	"github.com/geeklubcn/richman/model"
 	"github.com/geeklubcn/richman/service"
@@ -25,10 +27,11 @@ type Wechat interface {
 }
 
 type wechat struct {
-	token     string
-	appSvc    service.AppSvc
-	authorSvc service.AuthorSvc
-	bookSvc   service.BookSvc
+	token      string
+	appSvc     service.AppSvc
+	authorSvc  service.AuthorSvc
+	bookSvc    service.BookSvc
+	idempotent *lru.Cache
 }
 
 type WxReq struct {
@@ -67,6 +70,7 @@ func NewWechat(checkToken string, appSvc service.AppSvc, authorSvc service.Autho
 		authorSvc: authorSvc,
 		bookSvc:   bookSvc,
 	}
+	w.idempotent, _ = lru.New(256)
 	return w
 }
 
@@ -90,6 +94,12 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 	if err != nil {
 		logrus.Error("unmarshal xml fail!", err)
 	}
+
+	if idempotent.Contains(req.MsgID) {
+		logrus.WithContext(ctx).Infof("ignore repeat wechat msg:%+v", req)
+		return
+	}
+	idempotent.Add(req.MsgID, true)
 
 	defer func() {
 		if p := recover(); p != nil {
