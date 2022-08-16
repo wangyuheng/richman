@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/geeklubcn/richman/client"
@@ -24,6 +25,7 @@ type billSvc struct {
 	repo     repo.Bills
 	books    BookSvc
 	dreamSvc DreamSvc
+	cache    sync.Map
 }
 
 func NewBillSvc(appId, appSecret string, bookSvc BookSvc, dreamSvc DreamSvc, bitable client.Bitable) BillSvc {
@@ -32,6 +34,10 @@ func NewBillSvc(appId, appSecret string, bookSvc BookSvc, dreamSvc DreamSvc, bit
 		books:    bookSvc,
 		dreamSvc: dreamSvc,
 	}
+}
+
+func (b *billSvc) categoryCacheKey(appToken, remark string) string {
+	return fmt.Sprintf("bill-category-appToken-%s-remark-%s", appToken, remark)
 }
 
 func (b *billSvc) Record(appId, authorId, content string, category model.Category) string {
@@ -208,6 +214,12 @@ func (b *billSvc) ListCategory(appToken string) []string {
 }
 
 func (b *billSvc) GetCategory(appToken, remark string) []string {
+	if v, ok := b.cache.Load(b.categoryCacheKey(appToken, remark)); ok {
+		if vv, ok := v.([]string); ok {
+			return vv
+		}
+	}
+
 	records := b.repo.Search(appToken, []db.SearchCmd{
 		{
 			Key:      repo.BillTableRemark,
@@ -229,10 +241,13 @@ func (b *billSvc) GetCategory(appToken, remark string) []string {
 					has[c] = true
 					res = append(res, c)
 				}
+				b.cache.Store(b.categoryCacheKey(appToken, remark), res)
 				return res
 			}
 		}
-
+		if len(res) > 0 {
+			b.cache.Store(b.categoryCacheKey(appToken, remark), res)
+		}
 		return res
 	}
 	return nil

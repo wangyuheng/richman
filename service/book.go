@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"github.com/geeklubcn/richman/model"
 	"github.com/sirupsen/logrus"
+	"sync"
 
 	"github.com/geeklubcn/feishu-bitable-db/db"
 )
@@ -23,7 +25,8 @@ type BookSvc interface {
 }
 
 type bookSvc struct {
-	db db.DB
+	db    db.DB
+	cache sync.Map
 }
 
 func NewBookSvc(appId, appSecret string) BookSvc {
@@ -42,27 +45,42 @@ func NewBookSvc(appId, appSecret string) BookSvc {
 			{Name: bookCategory, Type: db.String},
 		},
 	})
-	return bookSvc{it}
+	return &bookSvc{db: it}
 }
 
-func (b bookSvc) GetByOpenId(openId string) (*model.Book, bool) {
+func (b *bookSvc) cacheKey(openId string) string {
+	return fmt.Sprintf("book-db-openid-%s", openId)
+}
+
+func (b *bookSvc) GetByOpenId(openId string) (*model.Book, bool) {
+	if v, ok := b.cache.Load(b.cacheKey(openId)); ok {
+		if vv, ok := v.(*model.Book); ok {
+			return vv, true
+		}
+	}
 	ctx := context.Background()
 	rs := b.db.Read(ctx, bookDatabase, bookTable, []db.SearchCmd{
 		{bookOpenId, "=", openId},
 	})
 	for _, r := range rs {
-		return &model.Book{
+		book := &model.Book{
 			AppId:    db.GetString(r, bookAppId),
 			AppToken: db.GetString(r, bookAppToken),
 			OpenId:   db.GetString(r, bookOpenId),
 			Category: model.Category(db.GetString(r, bookCategory)),
-		}, true
+		}
+		b.cache.Store(b.cacheKey(openId), book)
+		return book, true
 	}
 
 	return nil, false
 }
 
-func (b bookSvc) Save(appId, openId, appToken, category string) (string, error) {
+func (b *bookSvc) Save(appId, openId, appToken, category string) (string, error) {
+	if _, ok := b.cache.Load(b.cacheKey(openId)); ok {
+		b.cache.Delete(b.cacheKey(openId))
+	}
+
 	ctx := context.Background()
 
 	for _, r := range b.db.Read(ctx, bookDatabase, bookTable, []db.SearchCmd{

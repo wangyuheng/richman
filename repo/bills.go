@@ -49,6 +49,53 @@ func NewBills(appId, appSecret string, bitable client.Bitable) Bills {
 	}
 }
 
+func (b *bills) refresh(appToken string) {
+	ctx := context.Background()
+	fm := b.bitable.ListFields(ctx, appToken, billTable)
+	author := BillTableAuthor
+
+	for _, f := range fm {
+		if f.Type == 11 {
+			author = f.FieldName
+		}
+		if f.FieldName == BillTableCategory {
+			b.cache.Store(fmt.Sprintf("bill-categoryFieldType-appToken-%s", appToken), f.Type)
+		}
+	}
+
+	b.cache.Store(fmt.Sprintf("bill-authorFieldName-appToken-%s", appToken), author)
+}
+
+func (b *bills) getCategoryFieldType(appToken string) int {
+	if v, ok := b.cache.Load(fmt.Sprintf("bill-categoryFieldType-appToken-%s", appToken)); ok {
+		if vv, ok := v.(int); ok {
+			return vv
+		}
+	}
+	b.refresh(appToken)
+	if v, ok := b.cache.Load(fmt.Sprintf("bill-categoryFieldType-appToken-%s", appToken)); ok {
+		if vv, ok := v.(int); ok {
+			return vv
+		}
+	}
+	return -1
+}
+
+func (b *bills) getAuthorFieldName(appToken string) string {
+	if v, ok := b.cache.Load(fmt.Sprintf("bill-authorFieldName-appToken-%s", appToken)); ok {
+		if vv, ok := v.(string); ok {
+			return vv
+		}
+	}
+	b.refresh(appToken)
+	if v, ok := b.cache.Load(fmt.Sprintf("bill-authorFieldName-appToken-%s", appToken)); ok {
+		if vv, ok := v.(string); ok {
+			return vv
+		}
+	}
+	return ""
+}
+
 func (b *bills) Search(appToken string, ss []db.SearchCmd) []*model.Bill {
 	res := make([]*model.Bill, 0)
 
@@ -102,21 +149,12 @@ func (b *bills) Save(appToken string, bill *model.Bill) error {
 		bill.Expenses = Pay
 	}
 
-	fm := b.bitable.ListFields(ctx, appToken, billTable)
-	author := BillTableAuthor
+	author := b.getAuthorFieldName(appToken)
 	var categoryV interface{}
-
-	for _, f := range fm {
-		if f.Type == 11 {
-			author = f.FieldName
-		}
-		if f.FieldName == BillTableCategory {
-			if f.Type == 3 {
-				categoryV = bill.Categories[0]
-			} else {
-				categoryV = bill.Categories
-			}
-		}
+	if b.getCategoryFieldType(appToken) == 3 {
+		categoryV = bill.Categories[0]
+	} else {
+		categoryV = bill.Categories
 	}
 
 	_, err := b.db.Create(ctx, appToken, billTable, map[string]interface{}{
@@ -131,5 +169,8 @@ func (b *bills) Save(appToken string, bill *model.Bill) error {
 			},
 		},
 	})
+	if err != nil {
+		b.refresh(appToken)
+	}
 	return err
 }
