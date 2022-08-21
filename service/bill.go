@@ -63,6 +63,11 @@ func (b *billSvc) Record(appId, authorId, content string, category model.Categor
 		case "分类":
 			cs := b.ListCategory(book.AppToken)
 			return strings.Join(cs, "\r\n")
+		case "查账", "算账":
+			msg := make([]string, 0)
+			msg = append(msg, fmt.Sprintf("本月已收入 %.2f", b.curMonthIncomeTotal(book.AppToken)))
+			msg = append(msg, fmt.Sprintf("本月已支出 %.2f", b.curMonthTotal(book.AppToken)))
+			return strings.Join(msg, "\r\n")
 		case "账单":
 			return fmt.Sprintf("https://richman.feishu.cn/base/%s", book.AppToken)
 		case "微信", "wechat", "wx", "weixin":
@@ -265,6 +270,28 @@ func (b *billSvc) curMonthTotal(appToken string) float64 {
 			Key:      repo.BillTableExpenses,
 			Operator: "=",
 			Val:      repo.Pay,
+		},
+	})
+
+	for _, r := range records {
+		total += r.Amount
+	}
+
+	return total
+}
+
+func (b *billSvc) curMonthIncomeTotal(appToken string) float64 {
+	var total float64
+	records := b.repo.Search(appToken, []db.SearchCmd{
+		{
+			Key:      repo.BillTableMonth,
+			Operator: "=",
+			Val:      fmt.Sprintf("%d 月", time.Now().Month()),
+		},
+		{
+			Key:      repo.BillTableExpenses,
+			Operator: "=",
+			Val:      repo.Income,
 		},
 	})
 
