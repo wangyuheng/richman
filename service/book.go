@@ -1,22 +1,12 @@
 package service
 
 import (
-	"context"
 	"fmt"
-	"github.com/geeklubcn/richman/model"
-	"github.com/sirupsen/logrus"
-	"sync"
 
 	"github.com/geeklubcn/feishu-bitable-db/db"
-)
-
-const (
-	bookDatabase = "Richman"
-	bookTable    = "books"
-	bookAppId    = "app_id"
-	bookAppToken = "app_token"
-	bookOpenId   = "open_id"
-	bookCategory = "category"
+	"github.com/geeklubcn/richman/model"
+	"github.com/geeklubcn/richman/repo"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 type BookSvc interface {
@@ -25,74 +15,60 @@ type BookSvc interface {
 }
 
 type bookSvc struct {
-	db    db.DB
-	cache sync.Map
+	books repo.Books
+	cache *lru.Cache
 }
 
 func NewBookSvc(appId, appSecret string) BookSvc {
-	ctx := context.Background()
-	it, err := db.NewDB(appId, appSecret)
-	if err != nil {
-		logrus.WithContext(ctx).WithError(err).Errorf("init DB err! appId:%s", appId)
-		return nil
-	}
-	_, _ = it.SaveTable(ctx, bookDatabase, db.Table{
-		Name: "books",
-		Fields: []db.Field{
-			{Name: bookAppId, Type: db.String},
-			{Name: bookAppToken, Type: db.String},
-			{Name: bookOpenId, Type: db.String},
-			{Name: bookCategory, Type: db.String},
-		},
-	})
-	return &bookSvc{db: it}
+	books := repo.NewBooks(appId, appSecret)
+	cache, _ := lru.New(1024)
+
+	return &bookSvc{books, cache}
 }
 
 func (b *bookSvc) cacheKey(openId string) string {
 	return fmt.Sprintf("book-db-openid-%s", openId)
 }
 
-func (b *bookSvc) GetByOpenId(openId string) (*model.Book, bool) {
-	if v, ok := b.cache.Load(b.cacheKey(openId)); ok {
-		if vv, ok := v.(*model.Book); ok {
-			return vv, true
-		}
+func (b *bookSvc) Warmup() {
+	rs := b.books.Search([]db.SearchCmd{})
+	for _, r := range rs {
+		b.cache.Add(b.cacheKey(r.OpenId), r)
 	}
-	ctx := context.Background()
-	rs := b.db.Read(ctx, bookDatabase, bookTable, []db.SearchCmd{
-		{bookOpenId, "=", openId},
+}
+
+func (b *bookSvc) GetByOpenId(openId string) (*model.Book, bool) {
+	if v, ok := b.cache.Get(b.cacheKey(openId)); ok {
+		return v.(*model.Book), true
+	}
+	rs := b.books.Search([]db.SearchCmd{
+		{repo.BookOpenId, "=", openId},
 	})
 	for _, r := range rs {
-		book := &model.Book{
-			AppId:    db.GetString(r, bookAppId),
-			AppToken: db.GetString(r, bookAppToken),
-			OpenId:   db.GetString(r, bookOpenId),
-			Category: model.Category(db.GetString(r, bookCategory)),
-		}
-		b.cache.Store(b.cacheKey(openId), book)
-		return book, true
+		b.cache.Add(b.cacheKey(openId), r)
 	}
-
+	if len(rs) > 0 {
+		return rs[0], true
+	}
 	return nil, false
 }
 
 func (b *bookSvc) Save(appId, openId, appToken, category string) (string, error) {
-	if _, ok := b.cache.Load(b.cacheKey(openId)); ok {
-		b.cache.Delete(b.cacheKey(openId))
+	if _, ok := b.cache.Get(b.cacheKey(openId)); ok {
+		b.cache.Remove(b.cacheKey(openId))
 	}
 
-	ctx := context.Background()
+	it := &model.Book{
+		AppId:    appId,
+		AppToken: appToken,
+		OpenId:   openId,
+		Category: model.Category(category),
+	}
+	res, err := b.books.Save(it)
 
-	for _, r := range b.db.Read(ctx, bookDatabase, bookTable, []db.SearchCmd{
-		{bookOpenId, "=", openId},
-	}) {
-		_ = b.db.Delete(ctx, bookDatabase, bookTable, db.GetID(r))
+	if err != nil {
+		b.cache.Add(b.cacheKey(openId), it)
 	}
 
-	return b.db.Create(ctx, bookDatabase, bookTable, map[string]interface{}{
-		bookAppId:    appId,
-		bookAppToken: appToken,
-		bookOpenId:   openId,
-		bookCategory: category,
-	})
+	return res, err
 }
