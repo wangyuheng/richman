@@ -1,79 +1,77 @@
 package service
 
 import (
-	"context"
+	"fmt"
 
 	"github.com/geeklubcn/feishu-bitable-db/db"
 	"github.com/geeklubcn/richman/model"
-)
-
-const (
-	authorDatabase     = "Richman"
-	authorTable        = "authors"
-	authorAppId        = "app_id"
-	authorFeishuOpenId = "feishu_open_id"
-	authorWechatOpenId = "wechat_open_id"
+	"github.com/geeklubcn/richman/repo"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 type AuthorSvc interface {
 	Get(openId string, category model.Category) (*model.Author, bool)
-	Save(it *model.Author, category model.Category) (string, error)
+	Save(it *model.Author) (string, error)
 }
 
 func NewAuthorSvc(appId, appSecret string) AuthorSvc {
-	ctx := context.Background()
-	it, _ := db.NewDB(appId, appSecret)
-	_, _ = it.SaveTable(ctx, authorDatabase, db.Table{
-		Name: authorTable,
-		Fields: []db.Field{
-			{Name: authorFeishuOpenId, Type: db.String},
-			{Name: authorWechatOpenId, Type: db.String},
-			{Name: authorAppId, Type: db.String},
-		},
-	})
-	return authorSvc{it}
+	cache, _ := lru.New(1024)
+	authors := repo.NewAuthors(appId, appSecret)
+	res := &authorSvc{authors, cache}
+	go res.Warmup()
+	return res
 }
 
 type authorSvc struct {
-	db db.DB
+	authors repo.Authors
+	cache   *lru.Cache
 }
 
-func (a authorSvc) Get(openId string, category model.Category) (*model.Author, bool) {
-	ctx := context.Background()
+func (a *authorSvc) Warmup() {
+	records := a.authors.Search([]db.SearchCmd{})
+	for _, it := range records {
+		a.cacheItem(it)
+	}
+}
+
+func (a *authorSvc) Get(openId string, category model.Category) (*model.Author, bool) {
+	if v, ok := a.cache.Get(a.cacheKey(openId)); ok {
+		return v.(*model.Author), true
+	}
+
 	cmd := make([]db.SearchCmd, 0)
 	if category == model.CategoryFeishu {
-		cmd = append(cmd, db.SearchCmd{Key: authorFeishuOpenId, Operator: "=", Val: openId})
+		cmd = append(cmd, db.SearchCmd{Key: repo.AuthorFeishuOpenId, Operator: "=", Val: openId})
 	} else {
-		cmd = append(cmd, db.SearchCmd{Key: authorWechatOpenId, Operator: "=", Val: openId})
+		cmd = append(cmd, db.SearchCmd{Key: repo.AuthorWechatOpenId, Operator: "=", Val: openId})
 	}
-	records := a.db.Read(ctx, authorDatabase, authorTable, cmd)
-	for _, r := range records {
-		return &model.Author{
-			AppId:        db.GetString(r, authorAppId),
-			FeishuOpenId: db.GetString(r, authorFeishuOpenId),
-			WechatOpenId: db.GetString(r, authorWechatOpenId),
-		}, true
+	records := a.authors.Search(cmd)
+	for _, it := range records {
+		a.cacheItem(it)
+	}
+	if len(records) > 0 {
+		return records[0], true
 	}
 	return nil, false
 }
 
-func (a authorSvc) Save(it *model.Author, category model.Category) (string, error) {
-	ctx := context.Background()
-
-	cmd := make([]db.SearchCmd, 0)
-	if category == model.CategoryFeishu {
-		cmd = append(cmd, db.SearchCmd{Key: authorFeishuOpenId, Operator: "=", Val: it.FeishuOpenId})
-	} else {
-		cmd = append(cmd, db.SearchCmd{Key: authorWechatOpenId, Operator: "=", Val: it.WechatOpenId})
+func (a *authorSvc) Save(it *model.Author) (string, error) {
+	res, err := a.authors.Save(it)
+	if err != nil {
+		a.cacheItem(it)
 	}
+	return res, err
+}
 
-	for _, r := range a.db.Read(ctx, authorDatabase, authorTable, cmd) {
-		_ = a.db.Delete(ctx, authorDatabase, authorTable, db.GetID(r))
+func (a *authorSvc) cacheKey(openId string) string {
+	return fmt.Sprintf("author-openId-%s", openId)
+}
+
+func (a *authorSvc) cacheItem(it *model.Author) {
+	if it.WechatOpenId != "" {
+		a.cache.Add(a.cacheKey(it.WechatOpenId), it)
 	}
-
-	return a.db.Create(ctx, authorDatabase, authorTable, map[string]interface{}{
-		appsAppId:          it.AppId,
-		authorFeishuOpenId: it.FeishuOpenId,
-		authorWechatOpenId: it.WechatOpenId,
-	})
+	if it.FeishuOpenId != "" {
+		a.cache.Add(a.cacheKey(it.FeishuOpenId), it)
+	}
 }

@@ -89,18 +89,18 @@ func (w *wechat) CheckSignature(ctx *gin.Context) {
 
 func (w *wechat) Dispatch(ctx *gin.Context) {
 	var req WxReq
-	err := ctx.BindXML(&req)
-	logrus.Infof("receive xml:%+v", req)
-	if err != nil {
+	if err := ctx.BindXML(&req); err != nil {
 		logrus.Error("unmarshal xml fail!", err)
+		return
 	}
-
+	logrus.Infof("receive xml:%+v", req)
+	// idempotent
 	if idempotent.Contains(req.MsgID) {
 		logrus.WithContext(ctx).Infof("ignore repeat wechat msg:%+v", req)
 		return
 	}
 	idempotent.Add(req.MsgID, true)
-
+	// handle panic
 	defer func() {
 		if p := recover(); p != nil {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, fmt.Sprintf("something is wrong with %s", p))
@@ -114,8 +114,8 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 			AppId:        cmds[1],
 			FeishuOpenId: cmds[3],
 			WechatOpenId: req.FromUserName,
-		}, model.CategoryWechat)
-		if _, err = w.bookSvc.Save(cmds[1], cmds[3], cmds[2], string(model.CategoryWechat)); err != nil {
+		})
+		if _, err := w.bookSvc.Save(cmds[1], cmds[3], cmds[2], string(model.CategoryWechat)); err != nil {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, err.Error())
 			return
 		}
@@ -127,13 +127,11 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		strings.Contains(req.Content, "secret") &&
 		strings.Contains(req.Content, "token") {
 		var app model.App
-		err = json.Unmarshal([]byte(req.Content), &app)
-		if err != nil {
+		if err := json.Unmarshal([]byte(req.Content), &app); err != nil {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, "json格式不正确，可以按照这个格式修改 {\"id\":\"cli_a257f60e6bbab00c\",\"secret\":\"TVhkohuKkamGFU3cabXuFhdlLoS3EwhL\",\"token\":\"OzCFbkwGSckR6vo1pM4L7c8HU3j0MoeP\"}")
 			return
 		}
-		err = w.register(app)
-		if err != nil {
+		if err := w.register(app); err != nil {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, err.Error())
 			return
 		}
