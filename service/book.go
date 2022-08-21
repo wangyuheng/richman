@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/geeklubcn/feishu-bitable-db/db"
 	"github.com/geeklubcn/richman/model"
@@ -17,13 +18,19 @@ type BookSvc interface {
 type bookSvc struct {
 	books repo.Books
 	cache *lru.Cache
+	once  sync.Once
 }
 
 func NewBookSvc(appId, appSecret string) BookSvc {
 	books := repo.NewBooks(appId, appSecret)
 	cache, _ := lru.New(1024)
 
-	return &bookSvc{books, cache}
+	svc := &bookSvc{books: books, cache: cache}
+	svc.once.Do(func() {
+		go svc.Warmup()
+	})
+
+	return svc
 }
 
 func (b *bookSvc) cacheKey(openId string) string {

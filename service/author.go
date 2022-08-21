@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/geeklubcn/feishu-bitable-db/db"
 	"github.com/geeklubcn/richman/model"
@@ -17,14 +18,19 @@ type AuthorSvc interface {
 func NewAuthorSvc(appId, appSecret string) AuthorSvc {
 	cache, _ := lru.New(1024)
 	authors := repo.NewAuthors(appId, appSecret)
-	res := &authorSvc{authors, cache}
-	go res.Warmup()
-	return res
+
+	svc := &authorSvc{authors: authors, cache: cache}
+	svc.once.Do(func() {
+		go svc.Warmup()
+	})
+
+	return svc
 }
 
 type authorSvc struct {
 	authors repo.Authors
 	cache   *lru.Cache
+	once    sync.Once
 }
 
 func (a *authorSvc) Warmup() {
