@@ -2,13 +2,17 @@ package main
 
 import (
 	"log"
+	"time"
 
-	"github.com/geeklubcn/richman/mw"
+	ginzap "github.com/gin-contrib/zap"
+	"go.uber.org/zap"
 
 	"github.com/geeklubcn/richman/service"
 
 	"github.com/geeklubcn/richman/config"
 	"github.com/geeklubcn/richman/handle"
+	"github.com/gin-contrib/pprof"
+	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
@@ -19,9 +23,15 @@ func main() {
 
 	logrus.Debugf("load config. %+v", cfg)
 	r := gin.New()
+	pprof.Register(r)
+	r.Use(requestid.New())
+
+	logger, _ := zap.NewProduction()
+	r.Use(ginzap.Ginzap(logger, time.RFC3339, true))
+	r.Use(ginzap.RecoveryWithZap(logger, true))
+
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
-	r.Use(mw.Access())
 
 	register(r)
 	if err := r.Run(); err != nil {
