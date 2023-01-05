@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/geeklubcn/richman/client"
-	"github.com/geeklubcn/richman/model"
-	"github.com/geeklubcn/richman/service"
 	"github.com/hashicorp/golang-lru"
 	larkCore "github.com/larksuite/oapi-sdk-go/core"
 	"github.com/larksuite/oapi-sdk-go/core/config"
 	"github.com/larksuite/oapi-sdk-go/core/tools"
 	larkIm "github.com/larksuite/oapi-sdk-go/service/im/v1"
 	"github.com/sirupsen/logrus"
+	"github.com/wangyuheng/richman/client"
+	"github.com/wangyuheng/richman/model"
+	"github.com/wangyuheng/richman/service"
 )
 
 var facades = map[string]*Facade{}

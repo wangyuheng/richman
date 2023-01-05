@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/geeklubcn/richman/client"
+	"github.com/wangyuheng/richman/client"
 
-	"github.com/geeklubcn/richman/model"
+	"github.com/wangyuheng/richman/model"
 
 	"github.com/geeklubcn/feishu-bitable-db/db"
-	"github.com/geeklubcn/richman/repo"
+	"github.com/wangyuheng/richman/repo"
 )
 
 type BillSvc interface {

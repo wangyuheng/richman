@@ -3,11 +3,11 @@ package handle
 import (
 	"fmt"
 
-	"github.com/geeklubcn/richman/service"
 	"github.com/gin-gonic/gin"
 	larkCore "github.com/larksuite/oapi-sdk-go/core"
 	"github.com/larksuite/oapi-sdk-go/event"
 	"github.com/sirupsen/logrus"
+	"github.com/wangyuheng/richman/service"
 )
 
 type Feishu interface {

@@ -1,4 +1,4 @@
-module github.com/geeklubcn/richman
+module github.com/wangyuheng/richman
 
 go 1.16
 

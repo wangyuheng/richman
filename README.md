@@ -6,20 +6,20 @@
 
 基于飞书多维表格(bitable)实现的记账机器人。
 
-![architecture](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/geeklubcn/richman/master/.design/architecture.puml)
+![architecture](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/wangyuheng/richman/master/.design/architecture.puml)
 
 ## 飞书机器人
 
 - 视频教程: https://www.bilibili.com/video/BV1AY411K7rn
 - 文字教程: https://www.bilibili.com/read/cv17318657
 
-![flow](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/geeklubcn/richman/master/.design/flow.puml)
+![flow](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/wangyuheng/richman/master/.design/flow.puml)
 
 ## 微信公众号
 
 搜索并关注 `莫比乌斯的code`
 
-![flow](https://raw.githubusercontent.com/geeklubcn/richman/master/.design/qrcode.jpg)
+![flow](https://raw.githubusercontent.com/wangyuheng/richman/master/.design/qrcode.jpg)
 
 ### 获取事件回调地址
 
@@ -104,17 +104,17 @@ curl --location --request POST 'localhost:8080/feishu/webhook' \
 docker run -e "LARK_APP_ID=cli_a232fc4bceb8100b" \
 -e "LARK_APP_SECRET=AWkBwpc15kgsCOWf7Y7KQcCJyAdM1Clx" \
 -e "LARK_APP_TOKEN=bascnZkP4JxAWoFuO8R6LUJABme" \
-geeklubcn/richman:v1 
+wangyuheng/richman:v1 
 ```
 
 打包
 
 ```shell
-docker build -t geeklubcn/richman:v1 .
+docker build -t wangyuheng/richman:v1 .
 ```
 
 PUSH
 
 ```shell
-docker push geeklubcn/richman:v1
+docker push wangyuheng/richman:v1
 ```

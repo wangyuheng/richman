@@ -12,9 +12,9 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 
-	"github.com/geeklubcn/richman/config"
-	"github.com/geeklubcn/richman/model"
-	"github.com/geeklubcn/richman/service"
+	"github.com/wangyuheng/richman/config"
+	"github.com/wangyuheng/richman/model"
+	"github.com/wangyuheng/richman/service"
 
 	"github.com/sirupsen/logrus"
 

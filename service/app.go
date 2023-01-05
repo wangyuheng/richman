@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/geeklubcn/feishu-bitable-db/db"
-	"github.com/geeklubcn/richman/model"
+	"github.com/wangyuheng/richman/model"
 )
 
 const (

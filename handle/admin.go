@@ -1,9 +1,9 @@
 package handle
 
 import (
-	"github.com/geeklubcn/richman/model"
-	"github.com/geeklubcn/richman/service"
 	"github.com/gin-gonic/gin"
+	"github.com/wangyuheng/richman/model"
+	"github.com/wangyuheng/richman/service"
 )
 
 type Admin interface {

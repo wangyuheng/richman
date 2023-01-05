@@ -7,10 +7,10 @@ import (
 	ginzap "github.com/gin-contrib/zap"
 	"go.uber.org/zap"
 
-	"github.com/geeklubcn/richman/service"
+	"github.com/wangyuheng/richman/service"
 
-	"github.com/geeklubcn/richman/config"
-	"github.com/geeklubcn/richman/handle"
+	"github.com/wangyuheng/richman/config"
+	"github.com/wangyuheng/richman/handle"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
