@@ -12,6 +12,10 @@ func RecordSuccess(f float64) string {
 	return fmt.Sprintf("记账成功。本月已支出 %.2f", f)
 }
 
+func NouFoundCategory(remark string) string {
+	return fmt.Sprintf("猜不出【%s】是什么分类。先按照完整格式提交一下，下次我就记住了。 \r\n 格式： 备注 分类 金额。比如： 泡面 餐费 100", remark)
+}
+
 func Err(err error) string {
 	return fmt.Sprintf("发生了一个错误！ %s", err.Error())
 }

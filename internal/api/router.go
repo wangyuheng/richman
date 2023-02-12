@@ -9,7 +9,8 @@ type Router struct {
 }
 
 func (c Router) Register(r *gin.Engine) {
-	wx := r.Group("/wx2")
+	v2 := r.Group("/v2")
+	wx := v2.Group("/wx")
 	{
 		wx.GET("/", c.Wechat.CheckSignature)
 		wx.POST("/", c.Wechat.Dispatch)

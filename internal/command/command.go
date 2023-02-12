@@ -3,7 +3,6 @@ package command
 import (
 	"github.com/asaskevich/govalidator"
 	"github.com/wangyuheng/richman/internal/common"
-	"strconv"
 	"strings"
 )
 
@@ -12,6 +11,11 @@ type Commander struct {
 	Data interface{}
 }
 
+type RecordUsualData struct {
+	Remark   string
+	Amount   float64
+	Expenses string
+}
 type RecordData struct {
 	Remark   string
 	Category string
@@ -46,19 +50,19 @@ func Parse(s string) *Commander {
 		return &Commander{Category, s}
 	case len(strings.Split(s, " ")) == 3:
 		ss := strings.Split(strings.TrimSpace(s), " ")
-		expenses := common.Pay
-		if strings.HasPrefix(ss[2], "+") {
-			expenses = common.Income
-		}
-		amount, _ := strconv.ParseFloat(strings.TrimPrefix(ss[2], "+"), 10)
 		return &Commander{Record, RecordData{
 			Remark:   ss[0],
 			Category: ss[1],
-			Amount:   amount,
-			Expenses: expenses,
+			Amount:   common.ParseAmount(ss[1]),
+			Expenses: common.ConfirmExpenses(ss[1]),
 		}}
 	case len(strings.Split(s, " ")) == 2:
-		return &Commander{RecordUsual, s}
+		ss := strings.Split(strings.TrimSpace(s), " ")
+		return &Commander{RecordUsual, RecordUsualData{
+			Remark:   ss[0],
+			Amount:   common.ParseAmount(ss[1]),
+			Expenses: common.ConfirmExpenses(ss[1]),
+		}}
 	}
 	return &Commander{NotFound, s}
 }

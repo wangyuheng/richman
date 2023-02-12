@@ -88,7 +88,7 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 	// 查询用户信息
 	operator, exist := w.user.Unique(ctx, req.FromUserName)
 	if !exist {
-		//TODO wechat
+		// TODO wechat
 		operator = &model.User{
 			UID:  req.FromUserName,
 			Name: req.FromUserName,
@@ -136,6 +136,36 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 			return
 		}
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, book.URL)
+		return
+	case command.RecordUsual:
+		book, exists := w.book.QueryByUID(ctx, operator.UID)
+		if !exists {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotBind)
+			return
+		}
+		d := c.Data.(command.RecordUsualData)
+		if d.Amount <= 0 {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.AmountIllegal)
+			return
+		}
+
+		categories := w.bill.GetCategory(book.AppToken, d.Remark)
+		if len(categories) == 0 {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NouFoundCategory(d.Remark))
+			return
+		}
+		if err := w.bill.Save(ctx, book.AppToken, &model.Bill{
+			Remark:     d.Remark,
+			Categories: categories,
+			Amount:     d.Amount,
+			Expenses:   d.Expenses,
+			AuthorID:   operator.UID,
+			AuthorName: operator.Name,
+		}); err != nil {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
+			return
+		}
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.RecordSuccess(w.bill.CurMonthTotal(book.AppToken)))
 		return
 	case command.Record:
 		book, exists := w.book.QueryByUID(ctx, operator.UID)
