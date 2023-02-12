@@ -86,8 +86,12 @@ func (b book) Generate(ctx context.Context, creator model.User) (*model.Book, er
 func (b book) Bind(_ context.Context, url string, creator model.User) error {
 	s := strings.Split(url, "feishu.cn/base/")[1]
 	l := strings.Index(s, "?")
-	if l2 := strings.Index(s, "/"); l2 > 0 && l2 < l {
-		l = l2
+	if l == -1 {
+		l = len(s)
+	} else {
+		if l2 := strings.Index(s, "/"); l2 > 0 && l2 < l {
+			l = l2
+		}
 	}
 	_, err := b.books.Save(&model.Book{
 		AppToken:    s[0:l],

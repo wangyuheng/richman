@@ -110,7 +110,7 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 			return
 		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, res.URL)
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.MakeSuccess(res.URL))
 		return
 	case command.Bind:
 		err := w.book.Bind(ctx, cmd, *operator)

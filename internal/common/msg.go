@@ -8,6 +8,10 @@ const (
 	AmountIllegal = "金额格式错误"
 )
 
+func MakeSuccess(url string) string {
+	return fmt.Sprintf("%s\r\n%s", url, BindSuccess)
+}
+
 func RecordSuccess(f float64) string {
 	return fmt.Sprintf("记账成功。本月已支出 %.2f", f)
 }
