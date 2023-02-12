@@ -22,11 +22,13 @@ var ApiSet = wire.NewSet(
 )
 
 var BizSet = wire.NewSet(
+	biz.NewBill,
 	biz.NewBook,
 	biz.NewUser,
 )
 
 var RepoSet = wire.NewSet(
+	repo.NewBills,
 	repo.NewBooks,
 	repo.NewUsers,
 )

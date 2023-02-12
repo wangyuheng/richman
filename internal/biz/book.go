@@ -8,11 +8,13 @@ import (
 	"github.com/wangyuheng/richman/config"
 	"github.com/wangyuheng/richman/internal/model"
 	"github.com/wangyuheng/richman/internal/repo"
+	"strings"
 )
 
 type Book interface {
 	Generate(ctx context.Context, creator model.User) (*model.Book, error)
 	Bind(ctx context.Context, url string, creator model.User) error
+	QueryByUID(ctx context.Context, UID string) (*model.Book, bool)
 }
 
 type book struct {
@@ -29,10 +31,6 @@ func NewBook(cfg *config.Config, books repo.Books, cli *lark.Client) Book {
 		books:         books,
 		cli:           cli,
 	}
-}
-
-func (b book) Bind(ctx context.Context, url string, creator model.User) error {
-	return nil
 }
 
 func (b book) Generate(ctx context.Context, creator model.User) (*model.Book, error) {
@@ -83,4 +81,24 @@ func (b book) Generate(ctx context.Context, creator model.User) (*model.Book, er
 	}
 
 	return it, nil
+}
+
+func (b book) Bind(_ context.Context, url string, creator model.User) error {
+	s := strings.Split(url, "feishu.cn/base/")[1]
+	l := strings.Index(s, "?")
+	if l2 := strings.Index(s, "/"); l2 > 0 && l2 < l {
+		l = l2
+	}
+	_, err := b.books.Save(&model.Book{
+		AppToken:    s[0:l],
+		Name:        "bind",
+		URL:         url,
+		CreatorID:   creator.UID,
+		CreatorName: creator.Name,
+	})
+	return err
+}
+
+func (b book) QueryByUID(_ context.Context, UID string) (*model.Book, bool) {
+	return b.books.QueryByUID(UID)
 }

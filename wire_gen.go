@@ -19,12 +19,14 @@ import (
 
 func BuildRouter() api.Router {
 	configConfig := config.Load()
+	bills := repo.NewBills(configConfig)
+	bill := biz.NewBill(configConfig, bills)
 	books := repo.NewBooks(configConfig)
 	larkClient := client.NewFeishu(configConfig)
 	book := biz.NewBook(configConfig, books, larkClient)
 	users := repo.NewUsers(configConfig)
 	user := biz.NewUser(configConfig, users)
-	wechat := api.NewWechat(configConfig, book, user)
+	wechat := api.NewWechat(configConfig, bill, book, user)
 	router := api.Router{
 		Wechat: wechat,
 	}
@@ -37,6 +39,6 @@ var ComponentSet = wire.NewSet(config.Load, client.NewFeishu)
 
 var ApiSet = wire.NewSet(api.NewWechat)
 
-var BizSet = wire.NewSet(biz.NewBook, biz.NewUser)
+var BizSet = wire.NewSet(biz.NewBill, biz.NewBook, biz.NewUser)
 
-var RepoSet = wire.NewSet(repo.NewBooks, repo.NewUsers)
+var RepoSet = wire.NewSet(repo.NewBills, repo.NewBooks, repo.NewUsers)

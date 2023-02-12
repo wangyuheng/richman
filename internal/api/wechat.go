@@ -24,19 +24,17 @@ type Wechat interface {
 type wechat struct {
 	token      string
 	idempotent *lru.Cache
+	bill       biz.Bill
 	book       biz.Book
 	user       biz.User
-	//appSvc     service.AppSvc
-	//authorSvc  service.AuthorSvc
-	//bookSvc    service.BookSvc
-
 }
 
-func NewWechat(cfg *config.Config, book biz.Book, user biz.User) Wechat {
+func NewWechat(cfg *config.Config, bill biz.Bill, book biz.Book, user biz.User) Wechat {
 	idempotent, _ := lru.New(256)
 	return &wechat{
 		token:      cfg.WechatToken,
 		idempotent: idempotent,
+		bill:       bill,
 		book:       book,
 		user:       user,
 	}
@@ -90,10 +88,11 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 	operator, exist := w.user.Unique(ctx, req.FromUserName)
 	if !exist {
 		//TODO wechat
-		if err := w.user.Save(ctx, model.User{
-			UID:  "",
-			Name: "",
-		}); err != nil {
+		operator = &model.User{
+			UID:  req.FromUserName,
+			Name: req.FromUserName,
+		}
+		if err := w.user.Save(ctx, *operator); err != nil {
 			logger.WithError(err).Error("save operator fail")
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, fmt.Sprintf("something is wrong with %s", err.Error()))
 			return
@@ -121,6 +120,16 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		}
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, command.BindSuccess)
 		return
+	case command.Category:
+		book, exists := w.book.QueryByUID(ctx, operator.UID)
+		if !exists {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, command.NotBind)
+			return
+		}
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, strings.Join(w.bill.ListCategory(book.AppToken), "\r\n"))
+		return
+	case command.Record:
+
 	}
 
 	//	if strings.HasPrefix(req.Content, "wechat_r_") {
@@ -176,16 +185,6 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 //	}
 //	return nil
 //}
-
-func (w *wechat) trim(content string) string {
-	res := strings.ReplaceAll(content, " ", " ")
-
-	res = strings.TrimSpace(content)
-	res = strings.Trim(content, "\r")
-	res = strings.Trim(content, "\n")
-	res = strings.TrimSpace(content)
-	return res
-}
 
 func (w *wechat) returnTextMsg(ctx *gin.Context, from, to, content string) {
 	res, _ := xml.Marshal(model.WxResp{

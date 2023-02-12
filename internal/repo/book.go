@@ -2,10 +2,12 @@ package repo
 
 import (
 	"context"
+	"fmt"
 	"github.com/geeklubcn/feishu-bitable-db/db"
 	"github.com/sirupsen/logrus"
 	"github.com/wangyuheng/richman/config"
 	"github.com/wangyuheng/richman/internal/model"
+	"sync"
 )
 
 const (
@@ -21,10 +23,12 @@ const (
 type Books interface {
 	Save(it *model.Book) (string, error)
 	Search(cmd []db.SearchCmd) []*model.Book
+	QueryByUID(uid string) (*model.Book, bool)
 }
 
 type books struct {
-	db db.DB
+	db    db.DB
+	cache sync.Map
 }
 
 func NewBooks(cfg *config.Config) Books {
@@ -47,6 +51,12 @@ func NewBooks(cfg *config.Config) Books {
 	return &books{db: it}
 }
 
+func (b *books) WarmUP(ctx context.Context) {}
+
+func (b *books) Key(s string) string {
+	return fmt.Sprintf("repo:book:%s", s)
+}
+
 func (b *books) Save(it *model.Book) (string, error) {
 	ctx := context.Background()
 
@@ -63,6 +73,32 @@ func (b *books) Save(it *model.Book) (string, error) {
 		BookCreatorID:   it.CreatorID,
 		BookCreatorName: it.CreatorName,
 	})
+}
+
+func (b *books) QueryByUID(uid string) (*model.Book, bool) {
+	ctx := context.Background()
+
+	if v, ok := b.cache.Load(b.Key(uid)); ok {
+		if vv, ok := v.(*model.Book); ok {
+			return vv, true
+		}
+	}
+
+	rs := b.db.Read(ctx, bookDatabase, bookTable, []db.SearchCmd{
+		{BookCreatorID, "=", uid},
+	})
+	if len(rs) == 0 {
+		return nil, false
+	}
+	res := &model.Book{
+		AppToken:    db.GetString(rs[0], BookAppToken),
+		Name:        db.GetString(rs[0], BookName),
+		URL:         db.GetString(rs[0], BookURL),
+		CreatorID:   db.GetString(rs[0], BookCreatorID),
+		CreatorName: db.GetString(rs[0], BookCreatorName),
+	}
+	b.cache.Store(b.Key(res.CreatorID), res)
+	return res, true
 }
 
 func (b *books) Search(cmd []db.SearchCmd) []*model.Book {
