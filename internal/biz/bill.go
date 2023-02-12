@@ -1,14 +1,20 @@
 package biz
 
 import (
+	"context"
+	"fmt"
 	"github.com/geeklubcn/feishu-bitable-db/db"
 	"github.com/wangyuheng/richman/config"
+	"github.com/wangyuheng/richman/internal/model"
 	"github.com/wangyuheng/richman/internal/repo"
 	"sync"
+	"time"
 )
 
 type Bill interface {
+	CurMonthTotal(appToken string) float64
 	ListCategory(appToken string) []string
+	Save(ctx context.Context, appToken string, item *model.Bill) error
 }
 
 type bill struct {
@@ -20,6 +26,32 @@ func NewBill(_ *config.Config, bills repo.Bills) Bill {
 	return &bill{
 		bills: bills,
 	}
+}
+
+func (b *bill) CurMonthTotal(appToken string) float64 {
+	var total float64
+	records := b.bills.Search(appToken, []db.SearchCmd{
+		{
+			Key:      repo.BillTableMonth,
+			Operator: "=",
+			Val:      fmt.Sprintf("%d 月", time.Now().Month()),
+		},
+		{
+			Key:      repo.BillTableExpenses,
+			Operator: "=",
+			Val:      repo.Pay,
+		},
+	})
+
+	for _, r := range records {
+		total += r.Amount
+	}
+
+	return total
+}
+
+func (b *bill) Save(_ context.Context, appToken string, item *model.Bill) error {
+	return b.bills.Save(appToken, item)
 }
 
 func (b *bill) ListCategory(appToken string) []string {

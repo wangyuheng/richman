@@ -10,6 +10,7 @@ import (
 	"github.com/wangyuheng/richman/config"
 	"github.com/wangyuheng/richman/internal/biz"
 	"github.com/wangyuheng/richman/internal/command"
+	"github.com/wangyuheng/richman/internal/common"
 	"github.com/wangyuheng/richman/internal/model"
 	"sort"
 	"strings"
@@ -99,14 +100,14 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		}
 	}
 
-	cmd := command.Trim(req.Content)
+	cmd := common.Trim(req.Content)
 
-	switch command.Parse(cmd) {
+	switch c := command.Parse(cmd); c.Type {
 	case command.Make:
 		res, err := w.book.Generate(ctx, *operator)
 		if err != nil {
 			logger.WithError(err).Error("Handle Make Cmd Err")
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, command.Err(err))
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 			return
 		}
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, res.URL)
@@ -115,76 +116,53 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		err := w.book.Bind(ctx, cmd, *operator)
 		if err != nil {
 			logger.WithError(err).Error("Handle Bind Cmd Err")
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, command.Err(err))
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 			return
 		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, command.BindSuccess)
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.BindSuccess)
 		return
 	case command.Category:
 		book, exists := w.book.QueryByUID(ctx, operator.UID)
 		if !exists {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, command.NotBind)
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotBind)
 			return
 		}
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, strings.Join(w.bill.ListCategory(book.AppToken), "\r\n"))
 		return
+	case command.Bill:
+		book, exists := w.book.QueryByUID(ctx, operator.UID)
+		if !exists {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotBind)
+			return
+		}
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, book.URL)
+		return
 	case command.Record:
-
+		book, exists := w.book.QueryByUID(ctx, operator.UID)
+		if !exists {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotBind)
+			return
+		}
+		d := c.Data.(command.RecordData)
+		if d.Amount <= 0 {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.AmountIllegal)
+			return
+		}
+		if err := w.bill.Save(ctx, book.AppToken, &model.Bill{
+			Remark:     d.Remark,
+			Categories: []string{d.Category},
+			Amount:     d.Amount,
+			Expenses:   d.Expenses,
+			AuthorID:   operator.UID,
+			AuthorName: operator.Name,
+		}); err != nil {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
+			return
+		}
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.RecordSuccess(w.bill.CurMonthTotal(book.AppToken)))
+		return
 	}
-
-	//	if strings.HasPrefix(req.Content, "wechat_r_") {
-	//		cmds := strings.Split(req.Content, "_r_")
-	//		_, _ = w.authorSvc.Save(&model.Author{
-	//			AppId:        cmds[1],
-	//			FeishuOpenId: cmds[3],
-	//			WechatOpenId: req.FromUserName,
-	//		})
-	//		if _, err := w.bookSvc.Save(cmds[1], cmds[3], cmds[2], string(model.CategoryWechat)); err != nil {
-	//			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, err.Error())
-	//			return
-	//		}
-	//		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, "绑定成功，可以开始记账啦 \r\n记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100")
-	//		return
-	//	}
-	//
-	//	if strings.Contains(req.Content, "id") &&
-	//		strings.Contains(req.Content, "secret") &&
-	//		strings.Contains(req.Content, "token") {
-	//		var app model.App
-	//		if err := json.Unmarshal([]byte(req.Content), &app); err != nil {
-	//			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, "json格式不正确，可以按照这个格式修改 {\"id\":\"cli_a257f60e6bbab00c\",\"secret\":\"TVhkohuKkamGFU3cabXuFhdlLoS3EwhL\",\"token\":\"OzCFbkwGSckR6vo1pM4L7c8HU3j0MoeP\"}")
-	//			return
-	//		}
-	//		if err := w.register(app); err != nil {
-	//			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, err.Error())
-	//			return
-	//		}
-	//		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, fmt.Sprintf("绑定成功，开始使用吧。事件订阅地址\r\n%s/feishu/webhook/%s", config.GetConfig().SeverUrl, app.AppId))
-	//		return
-	//	}
-	//	if author, exists := w.authorSvc.Get(req.FromUserName, model.CategoryWechat); exists {
-	//		msg := facades[author.AppId].BillSvc.Record(author.AppId, author.FeishuOpenId, req.Content, model.CategoryWechat)
-	//		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, msg)
-	//		return
-	//	}
-	//	w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, "没找到绑定的账号信息")
-	//	return
 }
-
-//
-//func (w *wechat) register(app model.App) error {
-//	_, err := w.appSvc.Save(&app)
-//	if err != nil {
-//		return err
-//
-//	}
-//	err = register(app, w.authorSvc, w.bookSvc)
-//	if err != nil {
-//		return err
-//
-//	}
-//	return nil
-//}
 
 func (w *wechat) returnTextMsg(ctx *gin.Context, from, to, content string) {
 	res, _ := xml.Marshal(model.WxResp{

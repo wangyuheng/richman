@@ -20,7 +20,7 @@ const (
 	BillTableDate     = "日期"
 	BillTableMonth    = "月份"
 	BillTableExpenses = "收支"
-	BillTableAuthor   = "怨种"
+	BillTableAuthor   = "花钱小能手"
 )
 
 const (
@@ -148,7 +148,6 @@ func (b *bills) Save(appToken string, bill *model.Bill) error {
 		bill.Expenses = Pay
 	}
 
-	author := b.getAuthorFieldName(appToken)
 	var categoryV interface{}
 	if b.getCategoryFieldType(appToken) == 3 {
 		categoryV = bill.Categories[0]
@@ -162,11 +161,7 @@ func (b *bills) Save(appToken string, bill *model.Bill) error {
 		BillTableAmount:   bill.Amount,
 		BillTableDate:     bill.Date,
 		BillTableExpenses: bill.Expenses,
-		author: []map[string]string{
-			{
-				"id": bill.AuthorID,
-			},
-		},
+		BillTableAuthor:   bill.AuthorName,
 	})
 	if err != nil {
 		b.refresh(appToken)
