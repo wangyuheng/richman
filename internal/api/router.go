@@ -8,11 +8,15 @@ type Router struct {
 	Wechat Wechat
 }
 
-func (c Router) Register(r *gin.Engine) {
-	v2 := r.Group("/v2")
+func (r Router) Register(e *gin.Engine) {
+	e.GET("", func(ctx *gin.Context) {
+		ctx.Redirect(302, "https://github.com/wangyuheng/richman")
+		return
+	})
+	v2 := e.Group("/v2")
 	wx := v2.Group("/wx")
 	{
-		wx.GET("/", c.Wechat.CheckSignature)
-		wx.POST("/", c.Wechat.Dispatch)
+		wx.GET("/", r.Wechat.CheckSignature)
+		wx.POST("/", r.Wechat.Dispatch)
 	}
 }
