@@ -1,20 +1,19 @@
 package main
 
 import (
+	"github.com/wangyuheng/richman/handle"
+	"github.com/wangyuheng/richman/service"
 	"log"
 	"time"
 
 	ginzap "github.com/gin-contrib/zap"
 	"go.uber.org/zap"
 
-	"github.com/wangyuheng/richman/service"
-
-	"github.com/wangyuheng/richman/config"
-	"github.com/wangyuheng/richman/handle"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"github.com/wangyuheng/richman/config"
 )
 
 func main() {
@@ -65,5 +64,7 @@ func register(r *gin.Engine) {
 		wx.GET("/", wechat.CheckSignature)
 		wx.POST("/", wechat.Dispatch)
 	}
+
+	BuildRouter().Register(r)
 
 }

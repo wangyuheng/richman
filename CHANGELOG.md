@@ -1,3 +1,14 @@
+# 2023-02-11
+
+Feature
+
+- 提供生成账本功能 `Make Command` 
+
+Refactor
+
+- 使用`wire`优化依赖逻辑
+- 使用飞书官方SDK(github.com/larksuite/oapi-sdk-go)优化OpenAPI调用
+
 # 2022-07-31
 
 - 增加Dream管理
