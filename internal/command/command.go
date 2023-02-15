@@ -14,13 +14,13 @@ type Commander struct {
 type RecordUsualData struct {
 	Remark   string
 	Amount   float64
-	Expenses string
+	Expenses common.Expenses
 }
 type RecordData struct {
 	Remark   string
 	Category string
 	Amount   float64
-	Expenses string
+	Expenses common.Expenses
 }
 
 type Command int
@@ -33,6 +33,7 @@ const (
 	RecordUsual
 	Category
 	NotFound
+	Analysis
 )
 
 func Parse(s string) *Commander {
@@ -44,8 +45,10 @@ func Parse(s string) *Commander {
 		return &Commander{Make, s}
 	case govalidator.IsURL(s) && strings.Contains(s, "feishu.cn/base/"):
 		return &Commander{Bind, s}
-	case s == "账单":
+	case s == "账单", s == "账本":
 		return &Commander{Bill, s}
+	case s == "查账", s == "算账":
+		return &Commander{Analysis, s}
 	case s == "分类":
 		return &Commander{Category, s}
 	case len(strings.Split(s, " ")) == 3:

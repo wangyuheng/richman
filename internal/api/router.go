@@ -16,7 +16,7 @@ func (r Router) Register(e *gin.Engine) {
 	v2 := e.Group("/v2")
 	wx := v2.Group("/wx")
 	{
-		wx.GET("/", r.Wechat.CheckSignature)
-		wx.POST("/", r.Wechat.Dispatch)
+		wx.GET("", r.Wechat.CheckSignature)
+		wx.POST("", r.Wechat.Dispatch)
 	}
 }

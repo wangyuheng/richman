@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/geeklubcn/feishu-bitable-db/db"
 	"github.com/wangyuheng/richman/config"
+	"github.com/wangyuheng/richman/internal/common"
 	"github.com/wangyuheng/richman/internal/model"
 	"github.com/wangyuheng/richman/internal/repo"
 	"sync"
@@ -12,7 +13,7 @@ import (
 )
 
 type Bill interface {
-	CurMonthTotal(appToken string) float64
+	CurMonthTotal(appToken string, expenses common.Expenses, amount float64) float64
 	ListCategory(appToken string) []string
 	GetCategory(appToken, remark string) []string
 	Save(ctx context.Context, appToken string, item *model.Bill) error
@@ -69,7 +70,7 @@ func (b *bill) GetCategory(appToken, remark string) []string {
 	return nil
 }
 
-func (b *bill) CurMonthTotal(appToken string) float64 {
+func (b *bill) CurMonthTotal(appToken string, expenses common.Expenses, amount float64) float64 {
 	var total float64
 	records := b.bills.Search(appToken, []db.SearchCmd{
 		{
@@ -80,7 +81,7 @@ func (b *bill) CurMonthTotal(appToken string) float64 {
 		{
 			Key:      repo.BillTableExpenses,
 			Operator: "=",
-			Val:      repo.Pay,
+			Val:      string(expenses),
 		},
 	})
 
@@ -88,7 +89,7 @@ func (b *bill) CurMonthTotal(appToken string) float64 {
 		total += r.Amount
 	}
 
-	return total
+	return total + amount
 }
 
 func (b *bill) Save(_ context.Context, appToken string, item *model.Bill) error {

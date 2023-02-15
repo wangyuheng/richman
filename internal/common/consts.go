@@ -5,12 +5,14 @@ import (
 	"strings"
 )
 
+type Expenses string
+
 const (
-	Income = "收入"
-	Pay    = "支出"
+	Income Expenses = "收入"
+	Pay    Expenses = "支出"
 )
 
-func ConfirmExpenses(s string) string {
+func ConfirmExpenses(s string) Expenses {
 	expenses := Pay
 	if strings.HasPrefix(s, "+") {
 		expenses = Income

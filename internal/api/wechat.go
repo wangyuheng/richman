@@ -69,7 +69,7 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		_ = ctx.AbortWithError(400, fmt.Errorf("unmarshal req xml fail"))
 		return
 	}
-	logger := logrus.WithContext(ctx).WithField("req", req)
+	logger := logrus.WithContext(ctx).WithField("req", fmt.Sprintf("%+v", req))
 	logger.Info("receive req xml")
 	// handle panic
 	defer func() {
@@ -103,7 +103,24 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 	cmd := common.Trim(req.Content)
 
 	switch c := command.Parse(cmd); c.Type {
+	case command.Analysis:
+		book, exists := w.book.QueryByUID(ctx, operator.UID)
+		if !exists {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotBind)
+			return
+		}
+
+		in := w.bill.CurMonthTotal(book.AppToken, common.Income, 0)
+		out := w.bill.CurMonthTotal(book.AppToken, common.Pay, 0)
+
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Analysis(in, out))
+		return
 	case command.Make:
+		if book, exists := w.book.QueryByUID(ctx, operator.UID); exists {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.MakeSuccess(book.URL))
+			return
+		}
+		err := w.book.Bind(ctx, cmd, *operator)
 		res, err := w.book.Generate(ctx, *operator)
 		if err != nil {
 			logger.WithError(err).Error("Handle Make Cmd Err")
@@ -154,18 +171,19 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NouFoundCategory(d.Remark))
 			return
 		}
+		total := w.bill.CurMonthTotal(book.AppToken, d.Expenses, d.Amount)
 		if err := w.bill.Save(ctx, book.AppToken, &model.Bill{
 			Remark:     d.Remark,
 			Categories: categories,
 			Amount:     d.Amount,
-			Expenses:   d.Expenses,
+			Expenses:   string(d.Expenses),
 			AuthorID:   operator.UID,
 			AuthorName: operator.Name,
 		}); err != nil {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 			return
 		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.RecordSuccess(w.bill.CurMonthTotal(book.AppToken)))
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.RecordSuccess(total, d.Expenses))
 		return
 	case command.Record:
 		book, exists := w.book.QueryByUID(ctx, operator.UID)
@@ -178,18 +196,19 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.AmountIllegal)
 			return
 		}
+		total := w.bill.CurMonthTotal(book.AppToken, d.Expenses, d.Amount)
 		if err := w.bill.Save(ctx, book.AppToken, &model.Bill{
 			Remark:     d.Remark,
 			Categories: []string{d.Category},
 			Amount:     d.Amount,
-			Expenses:   d.Expenses,
+			Expenses:   string(d.Expenses),
 			AuthorID:   operator.UID,
 			AuthorName: operator.Name,
 		}); err != nil {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 			return
 		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.RecordSuccess(w.bill.CurMonthTotal(book.AppToken)))
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.RecordSuccess(total, d.Expenses))
 		return
 	}
 }
