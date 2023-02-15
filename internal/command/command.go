@@ -53,8 +53,8 @@ func Parse(s string) *Commander {
 		return &Commander{Record, RecordData{
 			Remark:   ss[0],
 			Category: ss[1],
-			Amount:   common.ParseAmount(ss[1]),
-			Expenses: common.ConfirmExpenses(ss[1]),
+			Amount:   common.ParseAmount(ss[2]),
+			Expenses: common.ConfirmExpenses(ss[2]),
 		}}
 	case len(strings.Split(s, " ")) == 2:
 		ss := strings.Split(strings.TrimSpace(s), " ")
