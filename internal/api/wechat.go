@@ -89,10 +89,8 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 	// 查询用户信息
 	operator, exist := w.user.Unique(ctx, req.FromUserName)
 	if !exist {
-		// TODO wechat
 		operator = &model.User{
-			UID:  req.FromUserName,
-			Name: req.FromUserName,
+			UID: req.FromUserName,
 		}
 		if err := w.user.Save(ctx, *operator); err != nil {
 			logger.WithError(err).Error("save operator fail")
@@ -121,7 +119,6 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.MakeSuccess(book.URL))
 			return
 		}
-		err := w.book.Bind(ctx, cmd, *operator)
 		res, err := w.book.Generate(ctx, *operator)
 		if err != nil {
 			logger.WithError(err).Error("Handle Make Cmd Err")
@@ -155,6 +152,19 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		}
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, book.URL)
 		return
+	case command.User:
+		name := c.Data.(string)
+		operator = &model.User{
+			UID:  req.FromUserName,
+			Name: name,
+		}
+		if err := w.user.Save(ctx, *operator); err != nil {
+			logger.WithError(err).Error("save operator fail")
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, fmt.Sprintf("something is wrong with %s", err.Error()))
+			return
+		}
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Welcome(name))
+		return
 	case command.RecordUsual:
 		book, exists := w.book.QueryByUID(ctx, operator.UID)
 		if !exists {
@@ -187,6 +197,10 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.RecordSuccess(total, d.Expenses))
 		return
 	case command.Record:
+		if operator.Name == "" {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotFoundUserName)
+			return
+		}
 		book, exists := w.book.QueryByUID(ctx, operator.UID)
 		if !exists {
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotBind)
