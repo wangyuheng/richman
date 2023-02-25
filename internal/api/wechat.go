@@ -12,6 +12,7 @@ import (
 	"github.com/wangyuheng/richman/internal/command"
 	"github.com/wangyuheng/richman/internal/common"
 	"github.com/wangyuheng/richman/internal/model"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -74,7 +75,7 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 	// handle panic
 	defer func() {
 		if p := recover(); p != nil {
-			logger.Errorf("handle dispatch req panic! err:%+v", p)
+			logger.Errorf("handle dispatch req panic! err:%+v, stack:%s", p, debug.Stack())
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, fmt.Sprintf("something is wrong with %s", p))
 			return
 		}
