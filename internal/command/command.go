@@ -40,7 +40,8 @@ const (
 func Parse(s string) *Commander {
 	s = common.Trim(s)
 	switch {
-	case strings.Contains(s, "整"),
+	case strings.Contains(s, "记账"),
+		strings.Contains(s, "整"),
 		strings.Contains(s, "搞"),
 		strings.Contains(s, "整一个"),
 		strings.Contains(s, "搞一个"):

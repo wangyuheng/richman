@@ -40,5 +40,5 @@ func Err(err error) string {
 }
 
 func Welcome(name string) string {
-	return fmt.Sprintf("欢迎：%s", name)
+	return fmt.Sprintf("欢迎：%s \r\n %s", name, BindSuccess)
 }

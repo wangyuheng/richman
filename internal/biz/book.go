@@ -2,6 +2,7 @@ package biz
 
 import (
 	"context"
+	"fmt"
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkdrive "github.com/larksuite/oapi-sdk-go/v3/service/drive/v1"
 	"github.com/sirupsen/logrus"
@@ -45,9 +46,13 @@ func (b book) Generate(ctx context.Context, creator model.User) (*model.Book, er
 			Name("飞书记账").
 			Build()).
 		Build())
-	if err != nil || !resp.Success() {
-		logger.WithError(err).Errorf("copy file fail! resp:%+v", resp)
+	if err != nil {
+		logger.WithError(err).Errorf("copy file error! resp:%+v", resp)
 		return nil, err
+	}
+	if !resp.Success() {
+		logger.WithError(err).Errorf("copy file fail! resp:%+v", resp)
+		return nil, fmt.Errorf(resp.Msg)
 	}
 	// 允许外部访问
 	permissionResp, err := b.cli.Drive.PermissionPublic.Patch(larkCtx, larkdrive.NewPatchPermissionPublicReqBuilder().
