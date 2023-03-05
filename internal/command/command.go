@@ -34,11 +34,14 @@ const (
 	Category
 	NotFound
 	Analysis
+	User
 )
 
 func Parse(s string) *Commander {
+	s = common.Trim(s)
 	switch {
-	case strings.Contains(s, "整"),
+	case strings.Contains(s, "记账"),
+		strings.Contains(s, "整"),
 		strings.Contains(s, "搞"),
 		strings.Contains(s, "整一个"),
 		strings.Contains(s, "搞一个"):
@@ -49,6 +52,9 @@ func Parse(s string) *Commander {
 		return &Commander{Bill, s}
 	case s == "查账", s == "算账":
 		return &Commander{Analysis, s}
+	case strings.HasPrefix(s, "用户"):
+		name := strings.TrimSpace(strings.TrimPrefix(s, "用户"))
+		return &Commander{User, name}
 	case s == "分类":
 		return &Commander{Category, s}
 	case len(strings.Split(s, " ")) == 3:
