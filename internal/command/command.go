@@ -27,6 +27,7 @@ type Command int
 
 const (
 	Make Command = iota
+	Code
 	Bill
 	Bind
 	Record
@@ -72,6 +73,8 @@ func Parse(s string) *Commander {
 			Amount:   common.ParseAmount(ss[1]),
 			Expenses: common.ConfirmExpenses(ss[1]),
 		}}
+	case s == "源码", s == "代码":
+		return &Commander{Code, s}
 	}
 	return &Commander{NotFound, s}
 }
