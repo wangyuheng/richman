@@ -225,6 +225,9 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		}
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.RecordSuccess(total, d.Expenses))
 		return
+	case command.Code:
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Code)
+		return
 	}
 }
 
