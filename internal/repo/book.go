@@ -65,14 +65,17 @@ func (b *books) Save(it *model.Book) (string, error) {
 	}) {
 		_ = b.db.Delete(ctx, bookDatabase, bookTable, db.GetID(r))
 	}
-
-	return b.db.Create(ctx, bookDatabase, bookTable, map[string]interface{}{
+	res, err := b.db.Create(ctx, bookDatabase, bookTable, map[string]interface{}{
 		BookAppToken:    it.AppToken,
 		BookName:        it.Name,
 		BookURL:         it.URL,
 		BookCreatorID:   it.CreatorID,
 		BookCreatorName: it.CreatorName,
 	})
+	if err == nil {
+		b.cache.Store(b.Key(it.CreatorID), res)
+	}
+	return res, err
 }
 
 func (b *books) QueryByUID(uid string) (*model.Book, bool) {
