@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"crypto/sha1"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -9,7 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/wangyuheng/richman/config"
 	"github.com/wangyuheng/richman/internal/biz"
-	"github.com/wangyuheng/richman/internal/command"
+	"github.com/wangyuheng/richman/internal/business"
+	"github.com/wangyuheng/richman/internal/client"
 	"github.com/wangyuheng/richman/internal/common"
 	"github.com/wangyuheng/richman/internal/model"
 	"runtime/debug"
@@ -27,18 +30,20 @@ type wechat struct {
 	token      string
 	idempotent *lru.Cache
 	bill       biz.Bill
-	book       biz.Book
 	user       biz.User
+	ledgerSvr  business.LedgerSvr
+	aiCaller   client.OpenAICaller
 }
 
-func NewWechat(cfg *config.Config, bill biz.Bill, book biz.Book, user biz.User) Wechat {
+func NewWechat(cfg *config.Config, bill biz.Bill, user biz.User, ledgerSvr business.LedgerSvr, aiCaller client.OpenAICaller) Wechat {
 	idempotent, _ := lru.New(256)
 	return &wechat{
 		token:      cfg.WechatToken,
 		idempotent: idempotent,
 		bill:       bill,
-		book:       book,
 		user:       user,
+		ledgerSvr:  ledgerSvr,
+		aiCaller:   aiCaller,
 	}
 }
 
@@ -65,7 +70,8 @@ func (w *wechat) CheckSignature(ctx *gin.Context) {
 
 func (w *wechat) Dispatch(ctx *gin.Context) {
 	var req model.WxReq
-	if err := ctx.BindXML(&req); err != nil {
+	var err error
+	if err = ctx.BindXML(&req); err != nil {
 		logrus.Error("unmarshal req xml fail!", err)
 		_ = ctx.AbortWithError(400, fmt.Errorf("unmarshal req xml fail"))
 		return
@@ -86,148 +92,168 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		return
 	}
 	w.idempotent.Add(req.MsgID, true)
-	// 查询用户信息
-	operator, exist := w.user.Unique(ctx, req.FromUserName)
-	if !exist {
-		operator = &model.User{
-			UID: req.FromUserName,
-		}
-		if err := w.user.Save(ctx, *operator); err != nil {
-			logger.WithError(err).Error("save operator fail")
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, fmt.Sprintf("something is wrong with %s", err.Error()))
-			return
-		}
-	}
 
+	ctx.Set("OPERATOR", &model.User{UID: req.FromUserName})
 	cmd := common.Trim(req.Content)
 
-	switch c := command.Parse(cmd); c.Type {
-	case command.Analysis:
-		book, exists := w.book.QueryByUID(ctx, operator.UID)
-		if !exists {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotBind)
-			return
-		}
-
-		in := w.bill.CurMonthTotal(book.AppToken, common.Income, 0)
-		out := w.bill.CurMonthTotal(book.AppToken, common.Pay, 0)
-
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Analysis(in, out))
+	resp, err := w.aiCaller.CallFunctions(ctx, cmd, business.BuildFunctions())
+	if err != nil {
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 		return
-	case command.Make:
-		if book, exists := w.book.QueryByUID(ctx, operator.UID); exists {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.MakeSuccess(book.URL))
-			return
-		}
-		res, err := w.book.Generate(ctx, *operator)
-		if err != nil {
-			logger.WithError(err).Error("Handle Make Cmd Err")
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
-			return
-		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.MakeSuccess(res.URL))
-		return
-	case command.Bind:
-		err := w.book.Bind(ctx, cmd, *operator)
-		if err != nil {
-			logger.WithError(err).Error("Handle Bind Cmd Err")
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
-			return
-		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.BindSuccess)
-		return
-	case command.Category:
-		book, exists := w.book.QueryByUID(ctx, operator.UID)
-		if !exists {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotBind)
-			return
-		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, strings.Join(w.bill.ListCategory(book.AppToken), "\r\n"))
-		return
-	case command.Bill:
-		book, exists := w.book.QueryByUID(ctx, operator.UID)
-		if !exists {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotBind)
-			return
-		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, book.URL)
-		return
-	case command.User:
-		name := c.Data.(string)
-		operator = &model.User{
-			UID:  req.FromUserName,
-			Name: name,
-		}
-		if err := w.user.Save(ctx, *operator); err != nil {
-			logger.WithError(err).Error("save operator fail")
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, fmt.Sprintf("something is wrong with %s", err.Error()))
-			return
-		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Welcome(name))
-		return
-	case command.RecordUsual:
-		book, exists := w.book.QueryByUID(ctx, operator.UID)
-		if !exists {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotBind)
-			return
-		}
-		d := c.Data.(command.RecordUsualData)
-		if d.Amount <= 0 {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.AmountIllegal)
-			return
-		}
-
-		categories := w.bill.GetCategory(book.AppToken, d.Remark)
-		if len(categories) == 0 {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NouFoundCategory(d.Remark))
-			return
-		}
-		total := w.bill.CurMonthTotal(book.AppToken, d.Expenses, d.Amount)
-		if err := w.bill.Save(ctx, book.AppToken, &model.Bill{
-			Remark:     d.Remark,
-			Categories: categories,
-			Amount:     d.Amount,
-			Expenses:   string(d.Expenses),
-			AuthorID:   operator.UID,
-			AuthorName: operator.Name,
-		}); err != nil {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
-			return
-		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.RecordSuccess(total, d.Expenses))
-		return
-	case command.Record:
-		if operator.Name == "" {
+	}
+	h := w.buildHandler(resp.FunctionCall, resp.Content)
+	if h.needAuth {
+		operator, userExist := w.user.Unique(ctx, req.FromUserName)
+		if !userExist || operator.Name == "" {
+			logger.Info("user not found, input required.")
 			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotFoundUserName)
 			return
 		}
-		book, exists := w.book.QueryByUID(ctx, operator.UID)
-		if !exists {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotBind)
-			return
-		}
-		d := c.Data.(command.RecordData)
-		if d.Amount <= 0 {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.AmountIllegal)
-			return
-		}
-		total := w.bill.CurMonthTotal(book.AppToken, d.Expenses, d.Amount)
-		if err := w.bill.Save(ctx, book.AppToken, &model.Bill{
-			Remark:     d.Remark,
-			Categories: []string{d.Category},
-			Amount:     d.Amount,
-			Expenses:   string(d.Expenses),
-			AuthorID:   operator.UID,
-			AuthorName: operator.Name,
-		}); err != nil {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
-			return
-		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.RecordSuccess(total, d.Expenses))
+		ctx.Set("OPERATOR", operator)
+	}
+	res, err := h.handle(ctx)
+	if err != nil {
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 		return
-	case command.Code:
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Code)
-		return
+	}
+	w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, res)
+	return
+}
+
+type handler struct {
+	name     string
+	needAuth bool
+	handle   func(ctx context.Context) (string, error)
+}
+
+func (w *wechat) buildHandler(call *client.OpenAIFunctionCall, content string) handler {
+	if call != nil {
+		switch call.Name {
+		case "get_source_code":
+			return handler{
+				name:     call.Name,
+				needAuth: false,
+				handle: func(ctx context.Context) (string, error) {
+					return "https://github.com/wangyuheng/richman", nil
+				},
+			}
+		case "get_ledger":
+			return handler{
+				name:     call.Name,
+				needAuth: true,
+				handle: func(ctx context.Context) (string, error) {
+					operator := ctx.Value("OPERATOR").(*model.User)
+					var ledger *business.Ledger
+					var err error
+					ledger, exists := w.ledgerSvr.QueryByUID(ctx, operator.UID)
+					if !exists {
+						ledger, err = w.ledgerSvr.Generate(ctx, *operator)
+						if err != nil {
+							return "", err
+						}
+					}
+					return ledger.URL, nil
+				},
+			}
+		case "get_category":
+			return handler{
+				name:     call.Name,
+				needAuth: true,
+				handle: func(ctx context.Context) (string, error) {
+					operator := ctx.Value("OPERATOR").(*model.User)
+					ledger, exists := w.ledgerSvr.QueryByUID(ctx, operator.UID)
+					if !exists {
+						return common.NotBind, nil
+					}
+					return strings.Join(w.bill.ListCategory(ledger.AppToken), "\r\n"), nil
+				},
+			}
+		case "query_bill":
+			return handler{
+				name:     call.Name,
+				needAuth: true,
+				handle: func(ctx context.Context) (string, error) {
+					operator := ctx.Value("OPERATOR").(*model.User)
+					ledger, exists := w.ledgerSvr.QueryByUID(ctx, operator.UID)
+					if !exists {
+						return common.NotBind, nil
+					}
+					in := w.bill.CurMonthTotal(ledger.AppToken, common.Income, 0)
+					out := w.bill.CurMonthTotal(ledger.AppToken, common.Pay, 0)
+
+					return common.Analysis(in, out), nil
+				},
+			}
+		case "bookkeeping":
+			return handler{
+				name:     call.Name,
+				needAuth: true,
+				handle: func(ctx context.Context) (string, error) {
+					operator := ctx.Value("OPERATOR").(*model.User)
+
+					var args business.BookkeepingArgs
+					_ = json.Unmarshal([]byte(call.Arguments), &args)
+					ledger, exists := w.ledgerSvr.QueryByUID(ctx, operator.UID)
+					if !exists {
+						return common.NotBind, nil
+					}
+					total := w.bill.CurMonthTotal(ledger.AppToken, common.Expenses(args.Expenses), args.Amount)
+					if err := w.bill.Save(ctx, ledger.AppToken, &model.Bill{
+						Remark:     args.Remark,
+						Categories: []string{args.Category},
+						Amount:     args.Amount,
+						Expenses:   args.Expenses,
+						AuthorID:   operator.UID,
+						AuthorName: operator.Name,
+					}); err != nil {
+						return "", err
+					}
+					return common.RecordSuccess(total, common.Expenses(args.Expenses)), nil
+				},
+			}
+		case "get_user_identity":
+			return handler{
+				name:     call.Name,
+				needAuth: false,
+				handle: func(ctx context.Context) (string, error) {
+					operator := ctx.Value("OPERATOR").(*model.User)
+
+					var args business.GetUserIdentityArgs
+					_ = json.Unmarshal([]byte(call.Arguments), &args)
+					operator.Name = args.Name
+
+					if err := w.user.Save(ctx, *operator); err != nil {
+						logrus.WithContext(ctx).WithError(err).Error("save operator fail")
+						return "", err
+					}
+					var ledger *business.Ledger
+					var err error
+					ledger, exist := w.ledgerSvr.QueryByUID(ctx, operator.UID)
+					if !exist {
+						if ledger, err = w.ledgerSvr.Generate(ctx, *operator); err != nil {
+							return "", err
+						}
+					}
+					return common.Welcome(operator.Name, ledger.URL), nil
+				},
+			}
+		}
+	}
+	if content != "" {
+		return handler{
+			name:     "ai answer",
+			needAuth: true,
+			handle: func(ctx context.Context) (string, error) {
+				return content, nil
+			},
+		}
+	}
+	return handler{
+		name:     "NoThing",
+		needAuth: false,
+		handle: func(ctx context.Context) (string, error) {
+			return "拜个早年吧", nil
+		},
 	}
 }
 

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"github.com/wangyuheng/richman/handle"
-	"github.com/wangyuheng/richman/service"
 	"log"
 	"time"
 
@@ -32,39 +30,8 @@ func main() {
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
-	register(r)
+	BuildRouter().Register(r)
 	if err := r.Run(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func register(r *gin.Engine) {
-	cfg := config.GetConfig()
-	appSvc := service.NewAppSvc(cfg.DbAppId, cfg.DbAppSecret)
-	authorSvc := service.NewAuthorSvc(cfg.DbAppId, cfg.DbAppSecret)
-	bookSvc := service.NewBookSvc(cfg.DbAppId, cfg.DbAppSecret)
-
-	handle.Init(appSvc, authorSvc, bookSvc)
-
-	feishu := handle.NewFeishu(appSvc, bookSvc)
-	f := r.Group("/feishu")
-	{
-		f.POST("/webhook/:app_id", feishu.Webhook)
-	}
-
-	admin := handle.NewAdmin(appSvc, authorSvc, bookSvc)
-	a := r.Group("/admin")
-	{
-		a.POST("/register", admin.Register)
-	}
-
-	wechat := handle.NewWechat(cfg.WechatToken, appSvc, authorSvc, bookSvc)
-	wx := r.Group("/wx")
-	{
-		wx.GET("/", wechat.CheckSignature)
-		wx.POST("/", wechat.Dispatch)
-	}
-
-	BuildRouter().Register(r)
-
 }
