@@ -103,6 +103,7 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 	}
 	h := w.buildHandler(resp.FunctionCall, resp.Content)
 	if h.needAuth {
+		logger.Info("exec handler %s", h.name)
 		operator, userExist := w.user.Unique(ctx, req.FromUserName)
 		if !userExist || operator.Name == "" {
 			logger.Info("user not found, input required.")
