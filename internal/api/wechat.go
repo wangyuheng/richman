@@ -101,24 +101,22 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 		return
 	}
-	go func() {
-		h := w.buildHandler(resp.FunctionCall, resp.Content)
-		if h.needAuth {
-			operator, userExist := w.user.Unique(ctx, req.FromUserName)
-			if !userExist || operator.Name == "" {
-				logger.Info("user not found, input required.")
-				w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotFoundUserName)
-				return
-			}
-			ctx.Set("OPERATOR", operator)
-		}
-		res, err := h.handle(ctx)
-		if err != nil {
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
+	h := w.buildHandler(resp.FunctionCall, resp.Content)
+	if h.needAuth {
+		operator, userExist := w.user.Unique(ctx, req.FromUserName)
+		if !userExist || operator.Name == "" {
+			logger.Info("user not found, input required.")
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotFoundUserName)
 			return
 		}
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, res)
-	}()
+		ctx.Set("OPERATOR", operator)
+	}
+	res, err := h.handle(ctx)
+	if err != nil {
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
+		return
+	}
+	w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, res)
 	return
 }
 
@@ -228,15 +226,13 @@ func (w *wechat) buildHandler(call *client.OpenAIFunctionCall, content string) h
 						logrus.WithContext(ctx).WithError(err).Error("save operator fail")
 						return "", err
 					}
-					var ledger *business.Ledger
-					var err error
-					ledger, exist := w.ledgerSvr.QueryByUID(ctx, operator.UID)
-					if !exist {
-						if ledger, err = w.ledgerSvr.Generate(ctx, *operator); err != nil {
-							return "", err
+					go func() {
+						if _, exist := w.ledgerSvr.QueryByUID(ctx, operator.UID); !exist {
+							_, _ = w.ledgerSvr.Generate(ctx, *operator)
 						}
-					}
-					return common.Welcome(operator.Name, ledger.URL), nil
+					}()
+
+					return common.Welcome(operator.Name), nil
 				},
 			}
 		}

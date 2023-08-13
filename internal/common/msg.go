@@ -40,6 +40,6 @@ func Err(err error) string {
 	return fmt.Sprintf("发生了一个错误！ %s", err.Error())
 }
 
-func Welcome(name, ledgerUrl string) string {
-	return fmt.Sprintf("欢迎：%s 使用飞书记账 \r\n 你的账本为 %s", name, ledgerUrl)
+func Welcome(name string) string {
+	return fmt.Sprintf("欢迎：%s 使用飞书记账 \r\n 可以回复查看账本来看为你创建的账本", name)
 }

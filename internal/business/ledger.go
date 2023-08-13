@@ -77,7 +77,7 @@ func (l *ledgerSvr) Generate(ctx context.Context, creator model.User) (*Ledger, 
 		return nil, err
 	}
 	// copying 时调用其他接口可能导致失败
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 	// 允许外部访问
 	err = l.setPermissionPublic(ctx, *copyFile.Token)
 	if err != nil {
