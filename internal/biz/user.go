@@ -29,7 +29,9 @@ func (b user) Unique(_ context.Context, uid string) (*model.User, bool) {
 
 func (b user) Save(ctx context.Context, it model.User) error {
 	logger := logrus.WithContext(ctx).WithField("user", it)
-
+	if _, exist := b.Unique(ctx, it.UID); exist {
+		return nil
+	}
 	_, err := b.users.Save(&it)
 	if err != nil {
 		logger.WithError(err).Error("save user err")

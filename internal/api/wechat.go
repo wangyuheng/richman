@@ -101,22 +101,24 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 		return
 	}
-	h := w.buildHandler(resp.FunctionCall, resp.Content)
-	if h.needAuth {
-		operator, userExist := w.user.Unique(ctx, req.FromUserName)
-		if !userExist || operator.Name == "" {
-			logger.Info("user not found, input required.")
-			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotFoundUserName)
+	go func() {
+		h := w.buildHandler(resp.FunctionCall, resp.Content)
+		if h.needAuth {
+			operator, userExist := w.user.Unique(ctx, req.FromUserName)
+			if !userExist || operator.Name == "" {
+				logger.Info("user not found, input required.")
+				w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.NotFoundUserName)
+				return
+			}
+			ctx.Set("OPERATOR", operator)
+		}
+		res, err := h.handle(ctx)
+		if err != nil {
+			w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 			return
 		}
-		ctx.Set("OPERATOR", operator)
-	}
-	res, err := h.handle(ctx)
-	if err != nil {
-		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
-		return
-	}
-	w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, res)
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, res)
+	}()
 	return
 }
 
