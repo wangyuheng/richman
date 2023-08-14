@@ -7,41 +7,74 @@
 package main
 
 import (
-	"github.com/google/wire"
+	"github.com/geeklubcn/feishu-bitable-db/db"
+	"github.com/gin-gonic/gin"
+	"github.com/larksuite/oapi-sdk-go/v3"
 	"github.com/wangyuheng/richman/config"
-	"github.com/wangyuheng/richman/internal/api"
-	"github.com/wangyuheng/richman/internal/biz"
-	"github.com/wangyuheng/richman/internal/business"
-	"github.com/wangyuheng/richman/internal/client"
-	"github.com/wangyuheng/richman/internal/repo"
+	"github.com/wangyuheng/richman/internal/domain"
+	"github.com/wangyuheng/richman/internal/infrastructure/database"
+	"github.com/wangyuheng/richman/internal/infrastructure/openai"
+	"github.com/wangyuheng/richman/internal/interfaces/http"
+	"github.com/wangyuheng/richman/internal/interfaces/http/handler"
+	"github.com/wangyuheng/richman/internal/usecase"
 )
 
 // Injectors from wire.go:
 
-func BuildRouter() api.Router {
-	configConfig := config.Load()
-	bills := repo.NewBills(configConfig)
-	bill := biz.NewBill(configConfig, bills)
-	users := repo.NewUsers(configConfig)
-	user := biz.NewUser(configConfig, users)
-	larkConfig := config.GetLarkConfig()
-	larkClient := client.NewFeishu(larkConfig)
-	larkDBConfig := config.GetLarkDBConfig()
-	ledgerSvr := business.NewLedgerSvr(larkClient, larkDBConfig)
-	openAICaller := client.NewOpenAICaller(configConfig)
-	wechat := api.NewWechat(configConfig, bill, user, ledgerSvr, openAICaller)
-	router := api.Router{
-		Wechat: wechat,
-	}
-	return router
+func InitializeUserUseCase(db2 db.DB) (usecase.UserUseCase, error) {
+	userRepository := database.NewUserRepository(db2)
+	userUseCase := usecase.NewUserUseCase(userRepository)
+	return userUseCase, nil
 }
 
-// wire.go:
+func InitializeLedgerUseCase(cfg *config.Config, db2 db.DB, larCli *lark.Client) (usecase.LedgerUseCase, error) {
+	ledgerRepository := database.NewLedgerRepository(cfg, larCli)
+	ledgerUseCase := usecase.NewLedgerUseCase(cfg, ledgerRepository, larCli)
+	return ledgerUseCase, nil
+}
 
-var ComponentSet = wire.NewSet(config.Load, config.GetLarkConfig, config.GetLarkDBConfig, client.NewFeishu, client.NewOpenAICaller)
+func InitializeBillUseCase(cfg *config.Config, db2 db.DB, larCli *lark.Client) (usecase.BillUseCase, error) {
+	billRepository := database.NewBillRepository(db2)
+	billUseCase := usecase.NewBillUseCase(billRepository)
+	return billUseCase, nil
+}
 
-var ApiSet = wire.NewSet(api.NewWechat)
+func InitializeWechatHandler(cfg *config.Config, db2 db.DB, larCli *lark.Client, auditLogger domain.AuditLogService) (handler.WechatHandler, error) {
+	billUseCase, err := InitializeBillUseCase(cfg, db2, larCli)
+	if err != nil {
+		return nil, err
+	}
+	aiService := openai.NewOpenAIService(cfg, auditLogger)
+	ledgerUseCase, err := InitializeLedgerUseCase(cfg, db2, larCli)
+	if err != nil {
+		return nil, err
+	}
+	userUseCase, err := InitializeUserUseCase(db2)
+	if err != nil {
+		return nil, err
+	}
+	wechatHandler := handler.NewWechatHandler(cfg, billUseCase, aiService, ledgerUseCase, userUseCase)
+	return wechatHandler, nil
+}
 
-var BizSet = wire.NewSet(biz.NewBill, biz.NewUser, business.NewLedgerSvr)
+func InitializeDevboxHandler(cfg *config.Config, db2 db.DB, larCli *lark.Client) (handler.DevboxHandler, error) {
+	userUseCase, err := InitializeUserUseCase(db2)
+	if err != nil {
+		return nil, err
+	}
+	devboxHandler := handler.NewDevboxHandler(cfg, userUseCase)
+	return devboxHandler, nil
+}
 
-var RepoSet = wire.NewSet(repo.NewBills, repo.NewUsers)
+func InitializeEngine(cfg *config.Config, db2 db.DB, larCli *lark.Client, auditLogger domain.AuditLogService) (*gin.Engine, error) {
+	wechatHandler, err := InitializeWechatHandler(cfg, db2, larCli, auditLogger)
+	if err != nil {
+		return nil, err
+	}
+	devboxHandler, err := InitializeDevboxHandler(cfg, db2, larCli)
+	if err != nil {
+		return nil, err
+	}
+	engine := http.NewEngine(wechatHandler, devboxHandler)
+	return engine, nil
+}

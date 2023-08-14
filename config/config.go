@@ -16,17 +16,19 @@ const (
 	WechatToken          = "WECHAT_TOKEN"
 	TemplateAppToken     = "TEMPLATE_APP_TOKEN"
 	TargetFolderAppToken = "TARGET_FOLDER_APP_TOKEN"
-	SeverUrl             = "SEVER_URL"
 	DBAppToken           = "DB_APP_TOKEN"
 	DBTableToken         = "DB_TABLE_TOKEN"
+	AuditLogDBToken      = "AUDIT_LOG_DB_TOKEN"
+	AuditLogTableToken   = "AUDIT_LOG_TABLE_TOKEN"
 )
 
 type Config struct {
 	LogLevel logrus.Level
-	SeverUrl string
 	LarkConfig
 	AIConfig
 	LarkDBConfig
+	AuditLogDBToken    string
+	AuditLogTableToken string
 }
 
 type AIConfig struct {
@@ -61,10 +63,13 @@ func Load() *Config {
 	_ = v.BindEnv(WechatToken)
 	_ = v.BindEnv(TemplateAppToken)
 	_ = v.BindEnv(TargetFolderAppToken)
-	_ = v.BindEnv(SeverUrl)
 	_ = v.BindEnv(DBAppToken)
 	_ = v.BindEnv(DBTableToken)
+	_ = v.BindEnv(AuditLogDBToken)
+	_ = v.BindEnv(AuditLogTableToken)
 
+	cfg.AuditLogDBToken = v.GetString(AuditLogDBToken)
+	cfg.AuditLogTableToken = v.GetString(AuditLogTableToken)
 	cfg.AIConfig.AiURL = v.GetString(AiURL)
 	cfg.AIConfig.AiKey = v.GetString(AiKey)
 	cfg.LarkConfig.DbAppId = v.GetString(LarkAppId)
@@ -72,7 +77,6 @@ func Load() *Config {
 	cfg.LarkConfig.WechatToken = v.GetString(WechatToken)
 	cfg.LarkConfig.TemplateAppToken = v.GetString(TemplateAppToken)
 	cfg.LarkConfig.TargetFolderAppToken = v.GetString(TargetFolderAppToken)
-	cfg.SeverUrl = v.GetString(SeverUrl)
 	cfg.LarkDBConfig.DBAppToken = v.GetString(DBAppToken)
 	cfg.LarkDBConfig.DBTableToken = v.GetString(DBTableToken)
 	cfg.LarkDBConfig.TemplateAppToken = v.GetString(TemplateAppToken)

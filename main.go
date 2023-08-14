@@ -1,7 +1,12 @@
 package main
 
 import (
+	"github.com/geeklubcn/feishu-bitable-db/db"
+	lark "github.com/larksuite/oapi-sdk-go/v3"
+	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
+	"github.com/wangyuheng/richman/internal/infrastructure/database"
 	"log"
+	"net/http"
 	"time"
 
 	ginzap "github.com/gin-contrib/zap"
@@ -15,11 +20,28 @@ import (
 )
 
 func main() {
+
 	cfg := config.Load()
 	logrus.SetLevel(cfg.LogLevel)
 
 	logrus.Debugf("load config. %+v", cfg)
-	r := gin.New()
+
+	bdb, err := db.NewDB(cfg.DbAppId, cfg.DbAppSecret)
+	if err != nil {
+		panic(err)
+	}
+
+	larkCli := lark.NewClient(cfg.DbAppId, cfg.DbAppSecret,
+		lark.WithLogLevel(larkcore.LogLevelDebug),
+		lark.WithReqTimeout(100*time.Second),
+		lark.WithHttpClient(http.DefaultClient))
+
+	auditLogger := database.NewAuditLogService(cfg, bdb)
+
+	r, err := InitializeEngine(cfg, bdb, larkCli, auditLogger)
+	if err != nil {
+		panic(err)
+	}
 	pprof.Register(r)
 	r.Use(requestid.New())
 
@@ -30,8 +52,7 @@ func main() {
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
-	BuildRouter().Register(r)
-	if err := r.Run(); err != nil {
+	if err = r.Run(); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -1,26 +1,14 @@
-package repo
+package database
 
 import (
 	"context"
 	"fmt"
+	"github.com/wangyuheng/richman/internal/domain"
+
 	"github.com/geeklubcn/feishu-bitable-db/db"
-	"github.com/sirupsen/logrus"
-	"github.com/wangyuheng/richman/config"
-	"github.com/wangyuheng/richman/internal/model"
 	"strconv"
 	"sync"
 	"time"
-)
-
-const (
-	billTable         = "个人账单记录"
-	BillTableRemark   = "备注"
-	BillTableCategory = "分类"
-	BillTableAmount   = "金额"
-	BillTableDate     = "日期"
-	BillTableMonth    = "月份"
-	BillTableExpenses = "收支"
-	BillTableAuthor   = "花钱小能手"
 )
 
 const (
@@ -28,27 +16,16 @@ const (
 	Pay    = "支出"
 )
 
-type Bills interface {
-	Save(appToken string, bill *model.Bill) error
-	Search(appToken string, ss []db.SearchCmd) []*model.Bill
-}
-
-type bills struct {
+type billRepository struct {
 	db    db.DB
 	cache sync.Map
 }
 
-func NewBills(cfg *config.Config) Bills {
-	ctx := context.Background()
-	it, err := db.NewDB(cfg.DbAppId, cfg.DbAppSecret)
-	if err != nil {
-		logrus.WithContext(ctx).WithError(err).Errorf("init repo err! db:%s, table:%s, cfg:%+v", userDatabase, userTable, cfg)
-		return nil
-	}
-	return &bills{db: it}
+func NewBillRepository(db db.DB) domain.BillRepository {
+	return &billRepository{db: db}
 }
 
-func (b *bills) refresh(appToken string) {
+func (b *billRepository) refresh(appToken string) {
 	//ctx := context.Background()
 	//fm := b.bitable.ListFields(ctx, appToken, billTable)
 	//author := BillTableAuthor
@@ -65,7 +42,7 @@ func (b *bills) refresh(appToken string) {
 	//b.cache.Store(fmt.Sprintf("bill-authorFieldName-appToken-%s", appToken), author)
 }
 
-func (b *bills) getCategoryFieldType(appToken string) int {
+func (b *billRepository) getCategoryFieldType(appToken, tableToken string) int {
 	if v, ok := b.cache.Load(fmt.Sprintf("bill-categoryFieldType-appToken-%s", appToken)); ok {
 		if vv, ok := v.(int); ok {
 			return vv
@@ -80,7 +57,7 @@ func (b *bills) getCategoryFieldType(appToken string) int {
 	return -1
 }
 
-func (b *bills) getAuthorFieldName(appToken string) string {
+func (b *billRepository) getAuthorFieldName(appToken, tableToken string) string {
 	if v, ok := b.cache.Load(fmt.Sprintf("bill-authorFieldName-appToken-%s", appToken)); ok {
 		if vv, ok := v.(string); ok {
 			return vv
@@ -95,21 +72,21 @@ func (b *bills) getAuthorFieldName(appToken string) string {
 	return ""
 }
 
-func (b *bills) Search(appToken string, ss []db.SearchCmd) []*model.Bill {
-	res := make([]*model.Bill, 0)
+func (b *billRepository) Search(appToken, tableToken string, ss []db.SearchCmd) []*domain.Bill {
+	res := make([]*domain.Bill, 0)
 
 	ctx := context.Background()
-	records := b.db.Read(ctx, appToken, billTable, ss)
+	records := b.db.Read(ctx, appToken, tableToken, ss)
 
 	for _, r := range records {
-		it := &model.Bill{
-			Remark:   fmt.Sprintf("%s", r[BillTableRemark]),
-			Expenses: fmt.Sprintf("%s", r[BillTableExpenses]),
-			Month:    fmt.Sprintf("%s", r[BillTableMonth]),
+		it := &domain.Bill{
+			Remark:   fmt.Sprintf("%s", r[domain.BillTableRemark]),
+			Expenses: fmt.Sprintf("%s", r[domain.BillTableExpenses]),
+			Month:    fmt.Sprintf("%s", r[domain.BillTableMonth]),
 		}
 		cs := make([]string, 0)
 
-		fc := r[BillTableCategory]
+		fc := r[domain.BillTableCategory]
 		if fcs, ok := fc.([]interface{}); ok {
 			for _, fc := range fcs {
 				if c, ok := fc.(string); ok {
@@ -122,12 +99,12 @@ func (b *bills) Search(appToken string, ss []db.SearchCmd) []*model.Bill {
 
 		it.Categories = cs
 
-		if r[BillTableAmount] != nil {
-			it.Amount, _ = strconv.ParseFloat(r[BillTableAmount].(string), 10)
+		if r[domain.BillTableAmount] != nil {
+			it.Amount, _ = strconv.ParseFloat(r[domain.BillTableAmount].(string), 10)
 		}
 
-		if r[BillTableDate] != nil {
-			it.Date = int64(r[BillTableDate].(float64))
+		if r[domain.BillTableDate] != nil {
+			it.Date = int64(r[domain.BillTableDate].(float64))
 		}
 
 		res = append(res, it)
@@ -138,7 +115,7 @@ func (b *bills) Search(appToken string, ss []db.SearchCmd) []*model.Bill {
 	return res
 }
 
-func (b *bills) Save(appToken string, bill *model.Bill) error {
+func (b *billRepository) Save(appToken, tableToken string, bill *domain.Bill) error {
 	ctx := context.Background()
 
 	if bill.Date == 0 {
@@ -149,19 +126,19 @@ func (b *bills) Save(appToken string, bill *model.Bill) error {
 	}
 
 	var categoryV interface{}
-	if b.getCategoryFieldType(appToken) == 3 {
+	if b.getCategoryFieldType(appToken, tableToken) == 3 {
 		categoryV = bill.Categories[0]
 	} else {
 		categoryV = bill.Categories
 	}
 
-	_, err := b.db.Create(ctx, appToken, billTable, map[string]interface{}{
-		BillTableRemark:   bill.Remark,
-		BillTableCategory: categoryV,
-		BillTableAmount:   bill.Amount,
-		BillTableDate:     bill.Date,
-		BillTableExpenses: bill.Expenses,
-		BillTableAuthor:   bill.AuthorName,
+	_, err := b.db.Create(ctx, appToken, tableToken, map[string]interface{}{
+		domain.BillTableRemark:   bill.Remark,
+		domain.BillTableCategory: categoryV,
+		domain.BillTableAmount:   bill.Amount,
+		domain.BillTableDate:     bill.Date,
+		domain.BillTableExpenses: bill.Expenses,
+		domain.BillTableAuthor:   bill.AuthorName,
 	})
 	if err != nil {
 		b.refresh(appToken)
