@@ -17,6 +17,7 @@ import (
 	"github.com/wangyuheng/richman/internal/model"
 	"runtime/debug"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -103,7 +104,7 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 	}
 	h := w.buildHandler(resp.FunctionCall, resp.Content)
 	if h.needAuth {
-		logger.Info("exec handler %s", h.name)
+		logger.Infof("exec handler %s", h.name)
 		operator, userExist := w.user.Unique(ctx, req.FromUserName)
 		if !userExist || operator.Name == "" {
 			logger.Info("user not found, input required.")
@@ -166,7 +167,7 @@ func (w *wechat) buildHandler(call *client.OpenAIFunctionCall, content string) h
 					if !exists {
 						return common.NotBind, nil
 					}
-					return strings.Join(w.bill.ListCategory(ledger.AppToken), "\r\n"), nil
+					return strings.Join(w.bill.ListCategory(ledger.AppToken, ledger.TableToken), "\r\n"), nil
 				},
 			}
 		case "query_bill":
@@ -179,8 +180,8 @@ func (w *wechat) buildHandler(call *client.OpenAIFunctionCall, content string) h
 					if !exists {
 						return common.NotBind, nil
 					}
-					in := w.bill.CurMonthTotal(ledger.AppToken, common.Income, 0)
-					out := w.bill.CurMonthTotal(ledger.AppToken, common.Pay, 0)
+					in := w.bill.CurMonthTotal(ledger.AppToken, ledger.TableToken, common.Income, 0)
+					out := w.bill.CurMonthTotal(ledger.AppToken, ledger.TableToken, common.Pay, 0)
 
 					return common.Analysis(in, out), nil
 				},
@@ -194,15 +195,19 @@ func (w *wechat) buildHandler(call *client.OpenAIFunctionCall, content string) h
 
 					var args business.BookkeepingArgs
 					_ = json.Unmarshal([]byte(call.Arguments), &args)
+					amount, err := strconv.ParseFloat(args.Amount, 64)
+					if err != nil {
+						return common.AmountIllegal, nil
+					}
 					ledger, exists := w.ledgerSvr.QueryByUID(ctx, operator.UID)
 					if !exists {
 						return common.NotBind, nil
 					}
-					total := w.bill.CurMonthTotal(ledger.AppToken, common.Expenses(args.Expenses), args.Amount)
-					if err := w.bill.Save(ctx, ledger.AppToken, &model.Bill{
+					total := w.bill.CurMonthTotal(ledger.AppToken, ledger.TableToken, common.Expenses(args.Expenses), amount)
+					if err := w.bill.Save(ctx, ledger.AppToken, ledger.TableToken, &model.Bill{
 						Remark:     args.Remark,
 						Categories: []string{args.Category},
-						Amount:     args.Amount,
+						Amount:     amount,
 						Expenses:   args.Expenses,
 						AuthorID:   operator.UID,
 						AuthorName: operator.Name,

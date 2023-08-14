@@ -13,10 +13,10 @@ import (
 )
 
 type Bill interface {
-	CurMonthTotal(appToken string, expenses common.Expenses, amount float64) float64
-	ListCategory(appToken string) []string
-	GetCategory(appToken, remark string) []string
-	Save(ctx context.Context, appToken string, item *model.Bill) error
+	CurMonthTotal(appToken, tableToken string, expenses common.Expenses, amount float64) float64
+	ListCategory(appToken, tableToken string) []string
+	GetCategory(appToken, tableToken, remark string) []string
+	Save(ctx context.Context, appToken, tableToken string, item *model.Bill) error
 }
 
 type bill struct {
@@ -30,14 +30,14 @@ func NewBill(_ *config.Config, bills repo.Bills) Bill {
 	}
 }
 
-func (b *bill) GetCategory(appToken, remark string) []string {
+func (b *bill) GetCategory(appToken, tableToken, remark string) []string {
 	if v, ok := b.cache.Load(b.categoryCacheKey(appToken, remark)); ok {
 		if vv, ok := v.([]string); ok {
 			return vv
 		}
 	}
 
-	records := b.bills.Search(appToken, []db.SearchCmd{
+	records := b.bills.Search(appToken, tableToken, []db.SearchCmd{
 		{
 			Key:      repo.BillTableRemark,
 			Operator: "=",
@@ -70,9 +70,9 @@ func (b *bill) GetCategory(appToken, remark string) []string {
 	return nil
 }
 
-func (b *bill) CurMonthTotal(appToken string, expenses common.Expenses, amount float64) float64 {
+func (b *bill) CurMonthTotal(appToken, tableToken string, expenses common.Expenses, amount float64) float64 {
 	var total float64
-	records := b.bills.Search(appToken, []db.SearchCmd{
+	records := b.bills.Search(appToken, tableToken, []db.SearchCmd{
 		{
 			Key:      repo.BillTableMonth,
 			Operator: "=",
@@ -92,12 +92,12 @@ func (b *bill) CurMonthTotal(appToken string, expenses common.Expenses, amount f
 	return total + amount
 }
 
-func (b *bill) Save(_ context.Context, appToken string, item *model.Bill) error {
-	return b.bills.Save(appToken, item)
+func (b *bill) Save(_ context.Context, appToken, tableToken string, item *model.Bill) error {
+	return b.bills.Save(appToken, tableToken, item)
 }
 
-func (b *bill) ListCategory(appToken string) []string {
-	records := b.bills.Search(appToken, []db.SearchCmd{})
+func (b *bill) ListCategory(appToken, tableToken string) []string {
+	records := b.bills.Search(appToken, tableToken, []db.SearchCmd{})
 	// distinct
 	if len(records) > 0 {
 		has := make(map[string]bool)

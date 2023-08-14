@@ -103,10 +103,10 @@ func BuildFunctions() []client.OpenAIFunction {
 }
 
 type BookkeepingArgs struct {
-	Remark   string  `json:"remark"`
-	Amount   float64 `json:"amount"`
-	Expenses string  `json:"expenses"`
-	Category string  `json:"category"`
+	Remark   string `json:"remark"`
+	Amount   string `json:"amount"`
+	Expenses string `json:"expenses"`
+	Category string `json:"category"`
 }
 
 type GetUserIdentityArgs struct {

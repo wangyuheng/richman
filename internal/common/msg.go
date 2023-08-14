@@ -41,5 +41,5 @@ func Err(err error) string {
 }
 
 func Welcome(name string) string {
-	return fmt.Sprintf("欢迎：%s 使用飞书记账 \r\n 可以回复查看账本来看为你创建的账本", name)
+	return fmt.Sprintf("欢迎：%s 使用飞书记账 \r\n 可以回复 [查看账本] 来看为你创建的账本", name)
 }
