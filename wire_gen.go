@@ -28,8 +28,9 @@ func BuildRouter() api.Router {
 	larkClient := client.NewFeishu(larkConfig)
 	larkDBConfig := config.GetLarkDBConfig()
 	ledgerSvr := business.NewLedgerSvr(larkClient, larkDBConfig)
+	facade := business.NewFacade(bill, user, ledgerSvr)
 	openAICaller := client.NewOpenAICaller(configConfig)
-	wechat := api.NewWechat(configConfig, bill, user, ledgerSvr, openAICaller)
+	wechat := api.NewWechat(configConfig, facade, user, openAICaller)
 	router := api.Router{
 		Wechat: wechat,
 	}
@@ -42,6 +43,6 @@ var ComponentSet = wire.NewSet(config.Load, config.GetLarkConfig, config.GetLark
 
 var ApiSet = wire.NewSet(api.NewWechat)
 
-var BizSet = wire.NewSet(biz.NewBill, biz.NewUser, business.NewLedgerSvr)
+var BizSet = wire.NewSet(biz.NewBill, biz.NewUser, business.NewLedgerSvr, business.NewFacade)
 
 var RepoSet = wire.NewSet(repo.NewBills, repo.NewUsers)

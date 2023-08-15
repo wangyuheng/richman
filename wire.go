@@ -29,6 +29,7 @@ var BizSet = wire.NewSet(
 	biz.NewBill,
 	biz.NewUser,
 	business.NewLedgerSvr,
+	business.NewFacade,
 )
 
 var RepoSet = wire.NewSet(

@@ -1,9 +1,7 @@
 package api
 
 import (
-	"context"
 	"crypto/sha1"
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -17,7 +15,6 @@ import (
 	"github.com/wangyuheng/richman/internal/model"
 	"runtime/debug"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -30,21 +27,19 @@ type Wechat interface {
 type wechat struct {
 	token      string
 	idempotent *lru.Cache
-	bill       biz.Bill
-	user       biz.User
-	ledgerSvr  business.LedgerSvr
 	aiCaller   client.OpenAICaller
+	facade     business.Facade
+	user       biz.User
 }
 
-func NewWechat(cfg *config.Config, bill biz.Bill, user biz.User, ledgerSvr business.LedgerSvr, aiCaller client.OpenAICaller) Wechat {
+func NewWechat(cfg *config.Config, facade business.Facade, user biz.User, aiCaller client.OpenAICaller) Wechat {
 	idempotent, _ := lru.New(256)
 	return &wechat{
 		token:      cfg.WechatToken,
 		idempotent: idempotent,
-		bill:       bill,
-		user:       user,
-		ledgerSvr:  ledgerSvr,
+		facade:     facade,
 		aiCaller:   aiCaller,
+		user:       user,
 	}
 }
 
@@ -102,9 +97,9 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 		return
 	}
-	h := w.buildHandler(resp.FunctionCall, resp.Content)
-	if h.needAuth {
-		logger.Infof("exec handler %s", h.name)
+	h := w.facade.BuildHandler(resp.FunctionCall, resp.Content)
+	if h.NeedAuth {
+		logger.Infof("exec handler %s", h.Name)
 		operator, userExist := w.user.Unique(ctx, req.FromUserName)
 		if !userExist || operator.Name == "" {
 			logger.Info("user not found, input required.")
@@ -113,152 +108,13 @@ func (w *wechat) Dispatch(ctx *gin.Context) {
 		}
 		ctx.Set("OPERATOR", operator)
 	}
-	res, err := h.handle(ctx)
+	res, err := h.Handle(ctx)
 	if err != nil {
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 		return
 	}
 	w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, res)
 	return
-}
-
-type handler struct {
-	name     string
-	needAuth bool
-	handle   func(ctx context.Context) (string, error)
-}
-
-func (w *wechat) buildHandler(call *client.OpenAIFunctionCall, content string) handler {
-	if call != nil {
-		switch call.Name {
-		case "get_source_code":
-			return handler{
-				name:     call.Name,
-				needAuth: false,
-				handle: func(ctx context.Context) (string, error) {
-					return "https://github.com/wangyuheng/richman", nil
-				},
-			}
-		case "get_ledger":
-			return handler{
-				name:     call.Name,
-				needAuth: true,
-				handle: func(ctx context.Context) (string, error) {
-					operator := ctx.Value("OPERATOR").(*model.User)
-					var ledger *business.Ledger
-					var err error
-					ledger, exists := w.ledgerSvr.QueryByUID(ctx, operator.UID)
-					if !exists {
-						ledger, err = w.ledgerSvr.Generate(ctx, *operator)
-						if err != nil {
-							return "", err
-						}
-					}
-					return ledger.URL, nil
-				},
-			}
-		case "get_category":
-			return handler{
-				name:     call.Name,
-				needAuth: true,
-				handle: func(ctx context.Context) (string, error) {
-					operator := ctx.Value("OPERATOR").(*model.User)
-					ledger, exists := w.ledgerSvr.QueryByUID(ctx, operator.UID)
-					if !exists {
-						return common.NotBind, nil
-					}
-					return strings.Join(w.bill.ListCategory(ledger.AppToken, ledger.TableToken), "\r\n"), nil
-				},
-			}
-		case "query_bill":
-			return handler{
-				name:     call.Name,
-				needAuth: true,
-				handle: func(ctx context.Context) (string, error) {
-					operator := ctx.Value("OPERATOR").(*model.User)
-					ledger, exists := w.ledgerSvr.QueryByUID(ctx, operator.UID)
-					if !exists {
-						return common.NotBind, nil
-					}
-					in := w.bill.CurMonthTotal(ledger.AppToken, ledger.TableToken, common.Income, 0)
-					out := w.bill.CurMonthTotal(ledger.AppToken, ledger.TableToken, common.Pay, 0)
-
-					return common.Analysis(in, out), nil
-				},
-			}
-		case "bookkeeping":
-			return handler{
-				name:     call.Name,
-				needAuth: true,
-				handle: func(ctx context.Context) (string, error) {
-					operator := ctx.Value("OPERATOR").(*model.User)
-
-					var args business.BookkeepingArgs
-					_ = json.Unmarshal([]byte(call.Arguments), &args)
-					amount, err := strconv.ParseFloat(args.Amount, 64)
-					if err != nil {
-						return common.AmountIllegal, nil
-					}
-					ledger, exists := w.ledgerSvr.QueryByUID(ctx, operator.UID)
-					if !exists {
-						return common.NotBind, nil
-					}
-					total := w.bill.CurMonthTotal(ledger.AppToken, ledger.TableToken, common.Expenses(args.Expenses), amount)
-					if err := w.bill.Save(ctx, ledger.AppToken, ledger.TableToken, &model.Bill{
-						Remark:     args.Remark,
-						Categories: []string{args.Category},
-						Amount:     amount,
-						Expenses:   args.Expenses,
-						AuthorID:   operator.UID,
-						AuthorName: operator.Name,
-					}); err != nil {
-						return "", err
-					}
-					return common.RecordSuccess(total, common.Expenses(args.Expenses)), nil
-				},
-			}
-		case "get_user_identity":
-			return handler{
-				name:     call.Name,
-				needAuth: false,
-				handle: func(ctx context.Context) (string, error) {
-					operator := ctx.Value("OPERATOR").(*model.User)
-
-					var args business.GetUserIdentityArgs
-					_ = json.Unmarshal([]byte(call.Arguments), &args)
-					operator.Name = args.Name
-
-					if err := w.user.Save(ctx, *operator); err != nil {
-						logrus.WithContext(ctx).WithError(err).Error("save operator fail")
-						return "", err
-					}
-					go func() {
-						if _, exist := w.ledgerSvr.QueryByUID(ctx, operator.UID); !exist {
-							_, _ = w.ledgerSvr.Generate(ctx, *operator)
-						}
-					}()
-
-					return common.Welcome(operator.Name), nil
-				},
-			}
-		}
-	}
-	if content != "" {
-		return handler{
-			name:     "ai answer",
-			needAuth: true,
-			handle: func(ctx context.Context) (string, error) {
-				return content, nil
-			},
-		}
-	}
-	return handler{
-		name:     "NoThing",
-		needAuth: false,
-		handle: func(ctx context.Context) (string, error) {
-			return "拜个早年吧", nil
-		},
-	}
 }
 
 func (w *wechat) returnTextMsg(ctx *gin.Context, from, to, content string) {
