@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	userDatabase = "Richman"
-	userTable    = "user"
+	userDatabase = "bascnAxeGhi8uWchfxjlwsZdFId"
+	userTable    = "tblmwBl2IVO3okT9"
 	userUid      = "uid"
 	userName     = "name"
 )

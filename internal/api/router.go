@@ -1,9 +1,6 @@
 package api
 
 import (
-	"net/http/httputil"
-	"net/url"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,13 +13,10 @@ func (r Router) Register(e *gin.Engine) {
 		ctx.Redirect(302, "https://github.com/wangyuheng/richman")
 		return
 	})
-	// gpt proxy
-	e.Any("/gpt", func(ctx *gin.Context) {
-		gpt := "https://falling-base-15ce.wangyuheng.workers.dev/v1/chat/completions"
-		target, _ := url.Parse(gpt)
-		proxy := httputil.NewSingleHostReverseProxy(target)
-		proxy.ServeHTTP(ctx.Writer, ctx.Request)
-	})
+	r.v2(e)
+}
+
+func (r Router) v2(e *gin.Engine) {
 	// richman
 	v2 := e.Group("/v2")
 	wx := v2.Group("/wx")

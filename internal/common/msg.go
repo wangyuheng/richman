@@ -9,7 +9,7 @@ const (
 	Code             = "https://github.com/wangyuheng/richman"
 	BindSuccess      = "绑定成功，可以开始记账啦 \r\n记账格式为： 备注 分类 金额。 \r\n 比如： 泡面 餐费 100 \r\n 或者： 加班费 工资收入 +100 \r\n 不是首次输入，可以忽略分类，比如： 泡面 100"
 	NotBind          = "请先绑定菜单。可以把记账文档发给我. 如: https://richman.feishu.cn/base/bascnzqgwKBqIQxp272MoZh1fhd \r\n 或者说 搞一个"
-	NotFoundUserName = "请告诉我你的名字\n 如: 用户 张三"
+	NotFoundUserName = "欢迎使用飞书记账，请先告诉我你的名字"
 	AmountIllegal    = "金额格式错误"
 )
 
@@ -41,5 +41,5 @@ func Err(err error) string {
 }
 
 func Welcome(name string) string {
-	return fmt.Sprintf("欢迎：%s \r\n %s", name, BindSuccess)
+	return fmt.Sprintf("欢迎：%s 使用飞书记账 \r\n 可以回复 [查看账本] 来看为你创建的账本", name)
 }

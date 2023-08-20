@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func NewFeishu(cfg *config.Config) *lark.Client {
+func NewFeishu(cfg config.LarkConfig) *lark.Client {
 	return lark.NewClient(cfg.DbAppId, cfg.DbAppSecret,
 		lark.WithLogLevel(larkcore.LogLevelDebug),
 		lark.WithReqTimeout(100*time.Second),

@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	billTable         = "个人账单记录"
 	BillTableRemark   = "备注"
 	BillTableCategory = "分类"
 	BillTableAmount   = "金额"
@@ -29,8 +28,8 @@ const (
 )
 
 type Bills interface {
-	Save(appToken string, bill *model.Bill) error
-	Search(appToken string, ss []db.SearchCmd) []*model.Bill
+	Save(appToken, tableToken string, bill *model.Bill) error
+	Search(appToken, tableToken string, ss []db.SearchCmd) []*model.Bill
 }
 
 type bills struct {
@@ -65,7 +64,7 @@ func (b *bills) refresh(appToken string) {
 	//b.cache.Store(fmt.Sprintf("bill-authorFieldName-appToken-%s", appToken), author)
 }
 
-func (b *bills) getCategoryFieldType(appToken string) int {
+func (b *bills) getCategoryFieldType(appToken, tableToken string) int {
 	if v, ok := b.cache.Load(fmt.Sprintf("bill-categoryFieldType-appToken-%s", appToken)); ok {
 		if vv, ok := v.(int); ok {
 			return vv
@@ -80,7 +79,7 @@ func (b *bills) getCategoryFieldType(appToken string) int {
 	return -1
 }
 
-func (b *bills) getAuthorFieldName(appToken string) string {
+func (b *bills) getAuthorFieldName(appToken, tableToken string) string {
 	if v, ok := b.cache.Load(fmt.Sprintf("bill-authorFieldName-appToken-%s", appToken)); ok {
 		if vv, ok := v.(string); ok {
 			return vv
@@ -95,11 +94,11 @@ func (b *bills) getAuthorFieldName(appToken string) string {
 	return ""
 }
 
-func (b *bills) Search(appToken string, ss []db.SearchCmd) []*model.Bill {
+func (b *bills) Search(appToken, tableToken string, ss []db.SearchCmd) []*model.Bill {
 	res := make([]*model.Bill, 0)
 
 	ctx := context.Background()
-	records := b.db.Read(ctx, appToken, billTable, ss)
+	records := b.db.Read(ctx, appToken, tableToken, ss)
 
 	for _, r := range records {
 		it := &model.Bill{
@@ -138,7 +137,7 @@ func (b *bills) Search(appToken string, ss []db.SearchCmd) []*model.Bill {
 	return res
 }
 
-func (b *bills) Save(appToken string, bill *model.Bill) error {
+func (b *bills) Save(appToken, tableToken string, bill *model.Bill) error {
 	ctx := context.Background()
 
 	if bill.Date == 0 {
@@ -149,13 +148,13 @@ func (b *bills) Save(appToken string, bill *model.Bill) error {
 	}
 
 	var categoryV interface{}
-	if b.getCategoryFieldType(appToken) == 3 {
+	if b.getCategoryFieldType(appToken, tableToken) == 3 {
 		categoryV = bill.Categories[0]
 	} else {
 		categoryV = bill.Categories
 	}
 
-	_, err := b.db.Create(ctx, appToken, billTable, map[string]interface{}{
+	_, err := b.db.Create(ctx, appToken, tableToken, map[string]interface{}{
 		BillTableRemark:   bill.Remark,
 		BillTableCategory: categoryV,
 		BillTableAmount:   bill.Amount,

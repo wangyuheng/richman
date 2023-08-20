@@ -11,6 +11,7 @@ import (
 	"github.com/wangyuheng/richman/config"
 	"github.com/wangyuheng/richman/internal/api"
 	"github.com/wangyuheng/richman/internal/biz"
+	"github.com/wangyuheng/richman/internal/business"
 	"github.com/wangyuheng/richman/internal/client"
 	"github.com/wangyuheng/richman/internal/repo"
 )
@@ -21,12 +22,15 @@ func BuildRouter() api.Router {
 	configConfig := config.Load()
 	bills := repo.NewBills(configConfig)
 	bill := biz.NewBill(configConfig, bills)
-	books := repo.NewBooks(configConfig)
-	larkClient := client.NewFeishu(configConfig)
-	book := biz.NewBook(configConfig, books, larkClient)
 	users := repo.NewUsers(configConfig)
 	user := biz.NewUser(configConfig, users)
-	wechat := api.NewWechat(configConfig, bill, book, user)
+	larkConfig := config.GetLarkConfig()
+	larkClient := client.NewFeishu(larkConfig)
+	larkDBConfig := config.GetLarkDBConfig()
+	ledgerSvr := business.NewLedgerSvr(larkClient, larkDBConfig)
+	facade := business.NewFacade(bill, user, ledgerSvr)
+	openAICaller := client.NewOpenAICaller(configConfig)
+	wechat := api.NewWechat(configConfig, facade, user, openAICaller)
 	router := api.Router{
 		Wechat: wechat,
 	}
@@ -35,10 +39,10 @@ func BuildRouter() api.Router {
 
 // wire.go:
 
-var ComponentSet = wire.NewSet(config.Load, client.NewFeishu)
+var ComponentSet = wire.NewSet(config.Load, config.GetLarkConfig, config.GetLarkDBConfig, client.NewFeishu, client.NewOpenAICaller)
 
 var ApiSet = wire.NewSet(api.NewWechat)
 
-var BizSet = wire.NewSet(biz.NewBill, biz.NewBook, biz.NewUser)
+var BizSet = wire.NewSet(biz.NewBill, biz.NewUser, business.NewLedgerSvr, business.NewFacade)
 
-var RepoSet = wire.NewSet(repo.NewBills, repo.NewBooks, repo.NewUsers)
+var RepoSet = wire.NewSet(repo.NewBills, repo.NewUsers)
