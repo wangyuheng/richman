@@ -1,5 +1,7 @@
 package domain
 
+import "context"
+
 type AIService interface {
-	CallFunctions(content string, ai AI) (*AIMessage, error)
+	CallFunctions(ctx context.Context, content string, ai AI) (*AIMessage, error)
 }

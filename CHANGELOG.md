@@ -1,3 +1,31 @@
+# 2023-08-20
+
+Feature
+
+- 新增 `AuditLogger` 用于记录审计日志
+
+Refactor
+
+- 通过 `Clean Arch` 重构代码结构
+
+# 2023-08-13
+
+Feature
+
+- 接入 `OpenAI Functions` 用于功能分发
+
+# 2023-02-11
+
+Feature
+
+- 提供生成账本功能 `Make Command`
+- 增加获取源码Cmd
+
+Refactor
+
+- 使用`wire`优化依赖逻辑
+- 使用飞书官方SDK(github.com/larksuite/oapi-sdk-go)优化OpenAPI调用
+
 # 2023-02-11
 
 Feature

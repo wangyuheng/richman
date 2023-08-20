@@ -7,21 +7,27 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/wangyuheng/richman/config"
+	"github.com/wangyuheng/richman/internal/common"
 	"github.com/wangyuheng/richman/internal/domain"
+	"io"
 	"net/http"
 )
 
-type openAICaller struct {
-	url string
-	key string
+type openAIService struct {
+	auditLogger domain.AuditLogService
+	url         string
+	key         string
 }
 
-func NewOpenAICaller(cfg *config.Config) domain.AIService {
-	return &openAICaller{url: cfg.AiURL, key: cfg.AiKey}
+func NewOpenAIService(cfg *config.Config, auditLogger domain.AuditLogService) domain.AIService {
+	return &openAIService{
+		auditLogger: auditLogger,
+		url:         cfg.AiURL,
+		key:         cfg.AiKey,
+	}
 }
 
-func (o *openAICaller) CallFunctions(content string, ai domain.AI) (*domain.AIMessage, error) {
-	ctx := context.Background()
+func (o *openAIService) CallFunctions(ctx context.Context, content string, ai domain.AI) (*domain.AIMessage, error) {
 	data := domain.AIReq{
 		Model: "gpt-3.5-turbo-0613",
 		Messages: []domain.AIMessage{
@@ -38,6 +44,16 @@ func (o *openAICaller) CallFunctions(content string, ai domain.AI) (*domain.AIMe
 	}
 	payload, _ := json.Marshal(data)
 
+	var auditResp string
+	defer func() {
+		o.auditLogger.Send(domain.AuditLog{
+			Req:      string(payload),
+			Resp:     auditResp,
+			Operator: common.GetCurrentUserID(ctx),
+			Key:      "openAIService_CallFunctions",
+		})
+	}()
+
 	req, _ := http.NewRequest("POST", o.url, bytes.NewBuffer(payload))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+o.key)
@@ -48,7 +64,9 @@ func (o *openAICaller) CallFunctions(content string, ai domain.AI) (*domain.AIMe
 		return nil, err
 	}
 	var response domain.AIResp
-	err = json.NewDecoder(resp.Body).Decode(&response)
+	respBody, _ := io.ReadAll(resp.Body)
+	auditResp = string(respBody)
+	err = json.Unmarshal(respBody, &response)
 	if err != nil {
 		logrus.WithError(err).Errorf("call openai response not json err! req:%+v, resp:%+v", req, resp)
 		return nil, err

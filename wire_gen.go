@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/larksuite/oapi-sdk-go/v3"
 	"github.com/wangyuheng/richman/config"
+	"github.com/wangyuheng/richman/internal/domain"
 	"github.com/wangyuheng/richman/internal/infrastructure/database"
 	"github.com/wangyuheng/richman/internal/infrastructure/openai"
 	"github.com/wangyuheng/richman/internal/interfaces/http"
@@ -33,17 +34,17 @@ func InitializeLedgerUseCase(cfg *config.Config, db2 db.DB, larCli *lark.Client)
 }
 
 func InitializeBillUseCase(cfg *config.Config, db2 db.DB, larCli *lark.Client) (usecase.BillUseCase, error) {
-	billRepository := database.NewBillRepository(cfg)
+	billRepository := database.NewBillRepository(db2)
 	billUseCase := usecase.NewBillUseCase(billRepository)
 	return billUseCase, nil
 }
 
-func InitializeWechatHandler(cfg *config.Config, db2 db.DB, larCli *lark.Client) (handler.WechatHandler, error) {
+func InitializeWechatHandler(cfg *config.Config, db2 db.DB, larCli *lark.Client, auditLogger domain.AuditLogService) (handler.WechatHandler, error) {
 	billUseCase, err := InitializeBillUseCase(cfg, db2, larCli)
 	if err != nil {
 		return nil, err
 	}
-	aiService := openai.NewOpenAICaller(cfg)
+	aiService := openai.NewOpenAIService(cfg, auditLogger)
 	ledgerUseCase, err := InitializeLedgerUseCase(cfg, db2, larCli)
 	if err != nil {
 		return nil, err
@@ -65,8 +66,8 @@ func InitializeDevboxHandler(cfg *config.Config, db2 db.DB, larCli *lark.Client)
 	return devboxHandler, nil
 }
 
-func InitializeEngine(cfg *config.Config, db2 db.DB, larCli *lark.Client) (*gin.Engine, error) {
-	wechatHandler, err := InitializeWechatHandler(cfg, db2, larCli)
+func InitializeEngine(cfg *config.Config, db2 db.DB, larCli *lark.Client, auditLogger domain.AuditLogService) (*gin.Engine, error) {
+	wechatHandler, err := InitializeWechatHandler(cfg, db2, larCli, auditLogger)
 	if err != nil {
 		return nil, err
 	}

@@ -3,8 +3,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"github.com/wangyuheng/richman/config"
 	"github.com/wangyuheng/richman/internal/domain"
 
 	"github.com/geeklubcn/feishu-bitable-db/db"
@@ -23,14 +21,8 @@ type billRepository struct {
 	cache sync.Map
 }
 
-func NewBillRepository(cfg *config.Config) domain.BillRepository {
-	ctx := context.Background()
-	it, err := db.NewDB(cfg.DbAppId, cfg.DbAppSecret)
-	if err != nil {
-		logrus.WithContext(ctx).WithError(err).Errorf("init repo err! db:%s, table:%s, cfg:%+v", userDatabase, userTable, cfg)
-		return nil
-	}
-	return &billRepository{db: it}
+func NewBillRepository(db db.DB) domain.BillRepository {
+	return &billRepository{db: db}
 }
 
 func (b *billRepository) refresh(appToken string) {

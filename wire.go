@@ -9,6 +9,7 @@ import (
 	"github.com/google/wire"
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	"github.com/wangyuheng/richman/config"
+	"github.com/wangyuheng/richman/internal/domain"
 	"github.com/wangyuheng/richman/internal/infrastructure/database"
 	"github.com/wangyuheng/richman/internal/infrastructure/openai"
 	"github.com/wangyuheng/richman/internal/interfaces/http"
@@ -31,8 +32,8 @@ func InitializeBillUseCase(cfg *config.Config, db db.DB, larCli *lark.Client) (u
 	return nil, nil
 }
 
-func InitializeWechatHandler(cfg *config.Config, db db.DB, larCli *lark.Client) (handler.WechatHandler, error) {
-	wire.Build(handler.NewWechatHandler, InitializeBillUseCase, InitializeUserUseCase, InitializeLedgerUseCase, openai.NewOpenAICaller)
+func InitializeWechatHandler(cfg *config.Config, db db.DB, larCli *lark.Client, auditLogger domain.AuditLogService) (handler.WechatHandler, error) {
+	wire.Build(handler.NewWechatHandler, InitializeBillUseCase, InitializeUserUseCase, InitializeLedgerUseCase, openai.NewOpenAIService)
 	return nil, nil
 }
 
@@ -41,7 +42,7 @@ func InitializeDevboxHandler(cfg *config.Config, db db.DB, larCli *lark.Client) 
 	return nil, nil
 }
 
-func InitializeEngine(cfg *config.Config, db db.DB, larCli *lark.Client) (*gin.Engine, error) {
+func InitializeEngine(cfg *config.Config, db db.DB, larCli *lark.Client, auditLogger domain.AuditLogService) (*gin.Engine, error) {
 	wire.Build(http.NewEngine, InitializeWechatHandler, InitializeDevboxHandler)
 	return nil, nil
 }
@@ -51,7 +52,7 @@ func InitializeEngine(cfg *config.Config, db db.DB, larCli *lark.Client) (*gin.E
 //	config.GetLarkConfig,
 //	config.GetLarkDBConfig,
 //	client.NewFeishu,
-//	client.NewOpenAICaller,
+//	client.NewOpenAIService,
 //)
 //
 //var ApiSet = wire.NewSet(

@@ -18,6 +18,8 @@ const (
 	TargetFolderAppToken = "TARGET_FOLDER_APP_TOKEN"
 	DBAppToken           = "DB_APP_TOKEN"
 	DBTableToken         = "DB_TABLE_TOKEN"
+	AuditLogDBToken      = "AUDIT_LOG_DB_TOKEN"
+	AuditLogTableToken   = "AUDIT_LOG_TABLE_TOKEN"
 )
 
 type Config struct {
@@ -25,6 +27,8 @@ type Config struct {
 	LarkConfig
 	AIConfig
 	LarkDBConfig
+	AuditLogDBToken    string
+	AuditLogTableToken string
 }
 
 type AIConfig struct {
@@ -61,7 +65,11 @@ func Load() *Config {
 	_ = v.BindEnv(TargetFolderAppToken)
 	_ = v.BindEnv(DBAppToken)
 	_ = v.BindEnv(DBTableToken)
+	_ = v.BindEnv(AuditLogDBToken)
+	_ = v.BindEnv(AuditLogTableToken)
 
+	cfg.AuditLogDBToken = v.GetString(AuditLogDBToken)
+	cfg.AuditLogTableToken = v.GetString(AuditLogTableToken)
 	cfg.AIConfig.AiURL = v.GetString(AiURL)
 	cfg.AIConfig.AiKey = v.GetString(AiKey)
 	cfg.LarkConfig.DbAppId = v.GetString(LarkAppId)

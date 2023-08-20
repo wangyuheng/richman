@@ -4,6 +4,7 @@ import (
 	"github.com/geeklubcn/feishu-bitable-db/db"
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
+	"github.com/wangyuheng/richman/internal/infrastructure/database"
 	"log"
 	"net/http"
 	"time"
@@ -29,12 +30,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	larkCli := lark.NewClient(cfg.DbAppId, cfg.DbAppSecret,
 		lark.WithLogLevel(larkcore.LogLevelDebug),
 		lark.WithReqTimeout(100*time.Second),
 		lark.WithHttpClient(http.DefaultClient))
 
-	r, err := InitializeEngine(cfg, bdb, larkCli)
+	auditLogger := database.NewAuditLogService(cfg, bdb)
+
+	r, err := InitializeEngine(cfg, bdb, larkCli, auditLogger)
 	if err != nil {
 		panic(err)
 	}

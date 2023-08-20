@@ -76,6 +76,8 @@ func (w *wechatHandler) Dispatch(ctx *gin.Context) {
 		_ = ctx.AbortWithError(400, fmt.Errorf("unmarshal req xml fail"))
 		return
 	}
+	ctx.Set(common.CurrentUserID, req.FromUserName)
+
 	logger := logrus.WithContext(ctx).WithField("req", fmt.Sprintf("%+v", req))
 	logger.Info("receive req xml")
 	// handle panic
@@ -93,7 +95,7 @@ func (w *wechatHandler) Dispatch(ctx *gin.Context) {
 	}
 	w.idempotent.Add(req.MsgID, true)
 
-	res, err := w.handleWechatTextMessage(req.Content, req.FromUserName)
+	res, err := w.handleWechatTextMessage(ctx, req.Content, req.FromUserName)
 	if err != nil {
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 		return
@@ -102,14 +104,13 @@ func (w *wechatHandler) Dispatch(ctx *gin.Context) {
 	return
 }
 
-func (w *wechatHandler) handleWechatTextMessage(content, UID string) (string, error) {
-	ctx := context.Background()
+func (w *wechatHandler) handleWechatTextMessage(ctx context.Context, content, UID string) (string, error) {
 	cmd := common.Trim(content)
 	operator := &domain.User{
 		UID: UID,
 	}
 
-	resp, err := w.aiService.CallFunctions(cmd, buildAIFunctions())
+	resp, err := w.aiService.CallFunctions(ctx, cmd, buildAIFunctions())
 	if err != nil {
 		return "", err
 	}
@@ -130,7 +131,7 @@ func buildAIFunctions() domain.AI {
 	currentDate := time.Now().Format("2006/01/02")
 	expenses := []string{"收入", "支出"}
 	return domain.AI{
-		Introduction: "你是一个基于飞书表格的记账软件",
+		Introduction: "你叫Richman 是一个基于飞书表格的记账软件",
 		Functions: []domain.AIFunction{
 			{
 				Name:        "bookkeeping",
