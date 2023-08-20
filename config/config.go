@@ -16,14 +16,12 @@ const (
 	WechatToken          = "WECHAT_TOKEN"
 	TemplateAppToken     = "TEMPLATE_APP_TOKEN"
 	TargetFolderAppToken = "TARGET_FOLDER_APP_TOKEN"
-	SeverUrl             = "SEVER_URL"
 	DBAppToken           = "DB_APP_TOKEN"
 	DBTableToken         = "DB_TABLE_TOKEN"
 )
 
 type Config struct {
 	LogLevel logrus.Level
-	SeverUrl string
 	LarkConfig
 	AIConfig
 	LarkDBConfig
@@ -61,7 +59,6 @@ func Load() *Config {
 	_ = v.BindEnv(WechatToken)
 	_ = v.BindEnv(TemplateAppToken)
 	_ = v.BindEnv(TargetFolderAppToken)
-	_ = v.BindEnv(SeverUrl)
 	_ = v.BindEnv(DBAppToken)
 	_ = v.BindEnv(DBTableToken)
 
@@ -72,7 +69,6 @@ func Load() *Config {
 	cfg.LarkConfig.WechatToken = v.GetString(WechatToken)
 	cfg.LarkConfig.TemplateAppToken = v.GetString(TemplateAppToken)
 	cfg.LarkConfig.TargetFolderAppToken = v.GetString(TargetFolderAppToken)
-	cfg.SeverUrl = v.GetString(SeverUrl)
 	cfg.LarkDBConfig.DBAppToken = v.GetString(DBAppToken)
 	cfg.LarkDBConfig.DBTableToken = v.GetString(DBTableToken)
 	cfg.LarkDBConfig.TemplateAppToken = v.GetString(TemplateAppToken)

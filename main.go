@@ -1,8 +1,11 @@
 package main
 
 import (
+	"github.com/geeklubcn/feishu-bitable-db/db"
+	lark "github.com/larksuite/oapi-sdk-go/v3"
+	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 	"log"
-	"os"
+	"net/http"
 	"time"
 
 	ginzap "github.com/gin-contrib/zap"
@@ -16,21 +19,25 @@ import (
 )
 
 func main() {
-	_ = os.Setenv("LARK_APP_ID", "cli_a218fd247d3b500c")
-	_ = os.Setenv("LARK_APP_SECRET", "yOMK77lcLL1OmNmatJSGlgWwNG73KEiI")
-	_ = os.Setenv("TEMPLATE_APP_TOKEN", "bascnVvTYC4C593vqcchbrDwMWc")
-	_ = os.Setenv("TARGET_FOLDER_APP_TOKEN", "fldcntu3Hi1T0EBpBFkiMPM38Qb")
-	_ = os.Setenv("AI_URL", "https://gpt.geeklub.cn/v1/chat/completions")
-	_ = os.Setenv("AI_KEY", "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")
-	_ = os.Setenv("WECHAT_TOKEN", "crick77")
-	_ = os.Setenv("DB_APP_TOKEN", "bascnAxeGhi8uWchfxjlwsZdFId")
-	_ = os.Setenv("DB_TABLE_TOKEN", "tblqW9kk0yc01dbp")
 
 	cfg := config.Load()
 	logrus.SetLevel(cfg.LogLevel)
 
 	logrus.Debugf("load config. %+v", cfg)
-	r := gin.New()
+
+	bdb, err := db.NewDB(cfg.DbAppId, cfg.DbAppSecret)
+	if err != nil {
+		panic(err)
+	}
+	larkCli := lark.NewClient(cfg.DbAppId, cfg.DbAppSecret,
+		lark.WithLogLevel(larkcore.LogLevelDebug),
+		lark.WithReqTimeout(100*time.Second),
+		lark.WithHttpClient(http.DefaultClient))
+
+	r, err := InitializeEngine(cfg, bdb, larkCli)
+	if err != nil {
+		panic(err)
+	}
 	pprof.Register(r)
 	r.Use(requestid.New())
 
@@ -41,8 +48,7 @@ func main() {
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
-	BuildRouter().Register(r)
-	if err := r.Run(); err != nil {
+	if err = r.Run(); err != nil {
 		log.Fatal(err)
 	}
 }

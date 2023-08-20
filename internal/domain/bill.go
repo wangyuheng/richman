@@ -1,4 +1,4 @@
-package model
+package domain
 
 type Bill struct {
 	Remark     string   `json:"remark"`

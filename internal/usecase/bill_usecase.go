@@ -1,45 +1,46 @@
-package biz
+package usecase
 
 import (
-	"context"
 	"fmt"
 	"github.com/geeklubcn/feishu-bitable-db/db"
-	"github.com/wangyuheng/richman/config"
 	"github.com/wangyuheng/richman/internal/common"
-	"github.com/wangyuheng/richman/internal/model"
-	"github.com/wangyuheng/richman/internal/repo"
+	"github.com/wangyuheng/richman/internal/domain"
 	"sync"
 	"time"
 )
 
-type Bill interface {
+type BillUseCase interface {
+	Save(appToken, tableToken string, bill *domain.Bill) error
+	GetCategory(appToken, tableToken, remark string) []string
 	CurMonthTotal(appToken, tableToken string, expenses common.Expenses, amount float64) float64
 	ListCategory(appToken, tableToken string) []string
-	GetCategory(appToken, tableToken, remark string) []string
-	Save(ctx context.Context, appToken, tableToken string, item *model.Bill) error
 }
 
-type bill struct {
-	bills repo.Bills
-	cache sync.Map
+type billUseCase struct {
+	billRepository domain.BillRepository
+	cache          sync.Map
 }
 
-func NewBill(_ *config.Config, bills repo.Bills) Bill {
-	return &bill{
-		bills: bills,
+func NewBillUseCase(billRepository domain.BillRepository) BillUseCase {
+	return &billUseCase{
+		billRepository: billRepository,
 	}
 }
 
-func (b *bill) GetCategory(appToken, tableToken, remark string) []string {
+func (b *billUseCase) Save(appToken, tableToken string, bill *domain.Bill) error {
+	return b.billRepository.Save(appToken, tableToken, bill)
+}
+
+func (b *billUseCase) GetCategory(appToken, tableToken, remark string) []string {
 	if v, ok := b.cache.Load(b.categoryCacheKey(appToken, remark)); ok {
 		if vv, ok := v.([]string); ok {
 			return vv
 		}
 	}
 
-	records := b.bills.Search(appToken, tableToken, []db.SearchCmd{
+	records := b.billRepository.Search(appToken, tableToken, []db.SearchCmd{
 		{
-			Key:      repo.BillTableRemark,
+			Key:      domain.BillTableRemark,
 			Operator: "=",
 			Val:      remark,
 		},
@@ -70,16 +71,16 @@ func (b *bill) GetCategory(appToken, tableToken, remark string) []string {
 	return nil
 }
 
-func (b *bill) CurMonthTotal(appToken, tableToken string, expenses common.Expenses, amount float64) float64 {
+func (b *billUseCase) CurMonthTotal(appToken, tableToken string, expenses common.Expenses, amount float64) float64 {
 	var total float64
-	records := b.bills.Search(appToken, tableToken, []db.SearchCmd{
+	records := b.billRepository.Search(appToken, tableToken, []db.SearchCmd{
 		{
-			Key:      repo.BillTableMonth,
+			Key:      domain.BillTableMonth,
 			Operator: "=",
 			Val:      fmt.Sprintf("%d 月", time.Now().Month()),
 		},
 		{
-			Key:      repo.BillTableExpenses,
+			Key:      domain.BillTableExpenses,
 			Operator: "=",
 			Val:      string(expenses),
 		},
@@ -92,12 +93,8 @@ func (b *bill) CurMonthTotal(appToken, tableToken string, expenses common.Expens
 	return total + amount
 }
 
-func (b *bill) Save(_ context.Context, appToken, tableToken string, item *model.Bill) error {
-	return b.bills.Save(appToken, tableToken, item)
-}
-
-func (b *bill) ListCategory(appToken, tableToken string) []string {
-	records := b.bills.Search(appToken, tableToken, []db.SearchCmd{})
+func (b *billUseCase) ListCategory(appToken, tableToken string) []string {
+	records := b.billRepository.Search(appToken, tableToken, []db.SearchCmd{})
 	// distinct
 	if len(records) > 0 {
 		has := make(map[string]bool)
@@ -119,6 +116,6 @@ func (b *bill) ListCategory(appToken, tableToken string) []string {
 	return nil
 }
 
-func (b *bill) categoryCacheKey(appToken, remark string) string {
+func (b *billUseCase) categoryCacheKey(appToken, remark string) string {
 	return fmt.Sprintf("bill:category:appToken:%s:remark:%s", appToken, remark)
 }
