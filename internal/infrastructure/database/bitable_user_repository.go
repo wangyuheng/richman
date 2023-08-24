@@ -21,8 +21,21 @@ type userRepository struct {
 }
 
 func NewUserRepository(db db.DB) domain.UserRepository {
-	return &userRepository{
+	u := &userRepository{
 		db: db,
+	}
+	u.WarmUP(context.Background())
+	return u
+}
+
+func (u *userRepository) WarmUP(ctx context.Context) {
+	items := u.db.Read(ctx, userDatabase, userTable, []db.SearchCmd{})
+	for _, it := range items {
+		res := &domain.User{
+			UID:  db.GetString(it, userUid),
+			Name: db.GetString(it, userName),
+		}
+		u.cache.Store(u.Key(res.UID), res)
 	}
 }
 

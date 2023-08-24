@@ -11,12 +11,14 @@ import (
 	"github.com/wangyuheng/richman/internal/domain"
 	"io"
 	"net/http"
+	"sync"
 )
 
 type openAIService struct {
 	auditLogger domain.AuditLogService
 	url         string
 	key         string
+	cache       sync.Map
 }
 
 func NewOpenAIService(cfg *config.Config, auditLogger domain.AuditLogService) domain.AIService {
@@ -28,6 +30,12 @@ func NewOpenAIService(cfg *config.Config, auditLogger domain.AuditLogService) do
 }
 
 func (o *openAIService) CallFunctions(ctx context.Context, content string, ai domain.AI) (*domain.AIMessage, error) {
+	if v, ok := o.cache.Load(fmt.Sprintf("AI:FUNCTIONS:%s", content)); ok {
+		if vv, ok := v.(*domain.AIMessage); ok {
+			return vv, nil
+		}
+	}
+
 	data := domain.AIReq{
 		Model: "gpt-3.5-turbo-0613",
 		Messages: []domain.AIMessage{
@@ -75,5 +83,6 @@ func (o *openAIService) CallFunctions(ctx context.Context, content string, ai do
 		logrus.WithError(err).Errorf("call openai response not json err! req:%+v, resp:%+v", req, resp)
 		return nil, fmt.Errorf("openai response choices is empty")
 	}
+	o.cache.Store(fmt.Sprintf("AI:FUNCTIONS:%s", content), &response.Choices[0].Message)
 	return &response.Choices[0].Message, nil
 }

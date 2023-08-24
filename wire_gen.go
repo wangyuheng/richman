@@ -28,7 +28,7 @@ func InitializeUserUseCase(db2 db.DB) (usecase.UserUseCase, error) {
 }
 
 func InitializeLedgerUseCase(cfg *config.Config, db2 db.DB, larCli *lark.Client) (usecase.LedgerUseCase, error) {
-	ledgerRepository := database.NewLedgerRepository(cfg, larCli)
+	ledgerRepository := database.NewLedgerRepository(cfg, larCli, db2)
 	ledgerUseCase := usecase.NewLedgerUseCase(cfg, ledgerRepository, larCli)
 	return ledgerUseCase, nil
 }

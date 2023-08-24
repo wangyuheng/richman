@@ -22,7 +22,12 @@ type billRepository struct {
 }
 
 func NewBillRepository(db db.DB) domain.BillRepository {
-	return &billRepository{db: db}
+	b := &billRepository{db: db}
+	b.WarmUP(context.Background())
+	return b
+}
+
+func (b *billRepository) WarmUP(ctx context.Context) {
 }
 
 func (b *billRepository) refresh(appToken string) {

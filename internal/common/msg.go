@@ -11,7 +11,7 @@ const (
 	NotBind          = "请先绑定菜单。可以把记账文档发给我. 如: https://richman.feishu.cn/base/bascnzqgwKBqIQxp272MoZh1fhd \r\n 或者说 搞一个"
 	NotFoundUserName = "欢迎使用飞书记账，请先告诉我你的名字"
 	AmountIllegal    = "金额格式错误"
-	NotSupport       = "不再支持这个功能"
+	NotSupport       = "往昔已逝，旧我已非。\r\n直接和我对话吧"
 )
 
 func MakeSuccess(url string) string {
