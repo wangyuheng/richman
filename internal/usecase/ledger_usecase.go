@@ -13,7 +13,9 @@ import (
 )
 
 type LedgerUseCase interface {
-	Generate(creator domain.User) (*domain.Ledger, error)
+	Allocated(creator domain.User) (*domain.Ledger, error)
+	PreparedAllocated() []*domain.Ledger
+	Generate() (*domain.Ledger, error)
 	QueryByUID(UID string) (*domain.Ledger, bool)
 }
 
@@ -22,6 +24,7 @@ type ledgerUseCase struct {
 	cli                  *lark.Client
 	templateAppToken     string
 	targetFolderAppToken string
+	unAllocated          []*domain.Ledger
 }
 
 func NewLedgerUseCase(cfg *config.Config, ledgerRepository domain.LedgerRepository, cli *lark.Client) LedgerUseCase {
@@ -33,7 +36,52 @@ func NewLedgerUseCase(cfg *config.Config, ledgerRepository domain.LedgerReposito
 	}
 }
 
-func (l *ledgerUseCase) Generate(creator domain.User) (*domain.Ledger, error) {
+func (l *ledgerUseCase) PreparedAllocated() []*domain.Ledger {
+	if len(l.unAllocated) > 5 {
+		return l.unAllocated
+	}
+	ls := l.ledgerRepository.QueryUnallocated()
+	if len(ls) > 5 {
+		l.unAllocated = ls
+	} else {
+		for i := 0; i < 10; i++ {
+			if it, err := l.Generate(); err == nil {
+				l.unAllocated = append(l.unAllocated, it)
+			}
+		}
+	}
+	return l.unAllocated
+}
+
+func (l *ledgerUseCase) Allocated(creator domain.User) (*domain.Ledger, error) {
+	var ledger *domain.Ledger
+	var err error
+	if len(l.unAllocated) > 0 {
+		ledger = l.unAllocated[len(l.unAllocated)-1]
+		l.unAllocated = l.unAllocated[:len(l.unAllocated)-1]
+		if err := l.ledgerRepository.UpdateUser(ledger.ID, creator); err != nil {
+			return nil, err
+		}
+		ledger.CreatorID = creator.UID
+		ledger.CreatorName = creator.Name
+		return ledger, nil
+	}
+	ls := l.ledgerRepository.QueryUnallocated()
+	if len(ls) == 0 {
+		ledger, err = l.Generate()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		ledger = ls[0]
+	}
+	if err = l.ledgerRepository.UpdateUser(ledger.ID, creator); err != nil {
+		return nil, err
+	}
+	return ledger, nil
+}
+
+func (l *ledgerUseCase) Generate() (*domain.Ledger, error) {
 	ctx := context.Background()
 	// 根据模板复制到指定文件夹
 	copyFile, err := l.copyFromTemplate(ctx)
@@ -54,12 +102,12 @@ func (l *ledgerUseCase) Generate(creator domain.User) (*domain.Ledger, error) {
 	}
 	// 保存账本
 	ledger := &domain.Ledger{
-		AppToken:    *copyFile.Token,
-		TableToken:  *tableID,
-		Name:        *copyFile.Name,
-		URL:         *copyFile.Url,
-		CreatorID:   creator.UID,
-		CreatorName: creator.Name,
+		AppToken:   *copyFile.Token,
+		TableToken: *tableID,
+		Name:       *copyFile.Name,
+		URL:        *copyFile.Url,
+		//CreatorID:   creator.UID,
+		//CreatorName: creator.Name,
 	}
 	_ = l.ledgerRepository.Save(ledger)
 	return ledger, nil

@@ -16,6 +16,7 @@ import (
 	"github.com/wangyuheng/richman/internal/infrastructure/openai"
 	"github.com/wangyuheng/richman/internal/interfaces/http"
 	"github.com/wangyuheng/richman/internal/interfaces/http/handler"
+	"github.com/wangyuheng/richman/internal/task"
 	"github.com/wangyuheng/richman/internal/usecase"
 )
 
@@ -62,8 +63,23 @@ func InitializeDevboxHandler(cfg *config.Config, db2 db.DB, larCli *lark.Client)
 	if err != nil {
 		return nil, err
 	}
-	devboxHandler := handler.NewDevboxHandler(cfg, userUseCase)
+	ledgerUseCase, err := InitializeLedgerUseCase(cfg, db2, larCli)
+	if err != nil {
+		return nil, err
+	}
+	devboxHandler := handler.NewDevboxHandler(cfg, userUseCase, ledgerUseCase)
 	return devboxHandler, nil
+}
+
+func InitializeTask(cfg *config.Config, db2 db.DB, larCli *lark.Client) (task.Tasker, error) {
+	ledgerUseCase, err := InitializeLedgerUseCase(cfg, db2, larCli)
+	if err != nil {
+		return nil, err
+	}
+	userRepository := database.NewUserRepository(db2)
+	ledgerRepository := database.NewLedgerRepository(cfg, larCli, db2)
+	tasker := task.NewWarmTask(ledgerUseCase, userRepository, ledgerRepository)
+	return tasker, nil
 }
 
 func InitializeEngine(cfg *config.Config, db2 db.DB, larCli *lark.Client, auditLogger domain.AuditLogService) (*gin.Engine, error) {

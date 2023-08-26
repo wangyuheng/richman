@@ -22,14 +22,12 @@ type ledgerRepository struct {
 }
 
 func NewLedgerRepository(cfg *config.Config, cli *lark.Client, db db.DB) domain.LedgerRepository {
-	l := &ledgerRepository{
+	return &ledgerRepository{
 		cli:          cli,
 		dbAppToken:   cfg.DBAppToken,
 		dbTableToken: cfg.DBTableToken,
 		db:           db,
 	}
-	l.WarmUP(context.Background())
-	return l
 }
 
 func (l *ledgerRepository) WarmUP(ctx context.Context) {
@@ -45,6 +43,70 @@ func (l *ledgerRepository) WarmUP(ctx context.Context) {
 		}
 		l.cache.Store(fmt.Sprintf("REPO:LEDGER:%s", db.GetString(it, res.CreatorID)), res)
 	}
+}
+
+func (l *ledgerRepository) UpdateUser(id string, user domain.User) error {
+	ctx := context.Background()
+
+	req := larkbitable.NewUpdateAppTableRecordReqBuilder().
+		AppToken(l.dbAppToken).
+		TableId(l.dbTableToken).
+		RecordId(id).
+		AppTableRecord(larkbitable.NewAppTableRecordBuilder().
+			Fields(map[string]interface{}{
+				"creator_id":   user.UID,
+				"creator_name": user.Name,
+			}).
+			Build()).
+		Build()
+	resp, err := l.cli.Bitable.AppTableRecord.Update(ctx, req)
+	if err != nil {
+		logrus.WithContext(ctx).WithError(err).Errorf("create record err! resp:%+v", resp)
+		return err
+	}
+	if !resp.Success() {
+		logrus.WithContext(ctx).WithError(err).Errorf("create record fail! resp:%+v", resp)
+		return fmt.Errorf(resp.Msg)
+	}
+	return nil
+}
+
+func (l *ledgerRepository) QueryUnallocated() []*domain.Ledger {
+	ctx := context.Background()
+
+	req := larkbitable.NewListAppTableRecordReqBuilder().
+		AppToken(l.dbAppToken).
+		TableId(l.dbTableToken).
+		Filter("AND(CurrentValue.creator_id=\"\")").
+		Build()
+	resp, err := l.cli.Bitable.AppTableRecord.List(ctx, req)
+	if err != nil {
+		logrus.WithContext(ctx).WithError(err).Errorf("create record err! resp:%+v", resp)
+		return nil
+	}
+	if !resp.Success() {
+		logrus.WithContext(ctx).WithError(err).Errorf("create record fail! resp:%+v", resp)
+		return nil
+	}
+	if *resp.Data.Total == 0 {
+		return nil
+	}
+	ledgers := make([]*domain.Ledger, 0)
+	var ledger domain.Ledger
+	for _, it := range resp.Data.Items {
+
+		j, err := json.Marshal(it.Fields)
+		if err != nil {
+			return nil
+		}
+		err = json.Unmarshal(j, &ledger)
+		if err != nil {
+			return nil
+		}
+		ledger.ID = *it.RecordId
+		ledgers = append(ledgers, &ledger)
+	}
+	return ledgers
 }
 
 func (l *ledgerRepository) QueryByUID(UID string) (*domain.Ledger, bool) {
@@ -82,6 +144,7 @@ func (l *ledgerRepository) QueryByUID(UID string) (*domain.Ledger, bool) {
 	if err != nil {
 		return nil, false
 	}
+	ledger.ID = *resp.Data.Items[0].RecordId
 	l.cache.Store(fmt.Sprintf("REPO:LEDGER:%s", UID), &ledger)
 
 	return &ledger, true
@@ -123,6 +186,6 @@ func structToMap(input interface{}) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	delete(result, "id")
 	return result, nil
 }
