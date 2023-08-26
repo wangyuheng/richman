@@ -141,7 +141,7 @@ func (w *wechatHandler) Dispatch(ctx *gin.Context) {
 func (w *wechatHandler) handleWechatTextMessage(ctx context.Context, content, UID string) (string, error) {
 	cmd := common.Trim(content)
 
-	var js json.RawMessage
+	var js map[string]string
 	if json.Unmarshal([]byte(cmd), &js) == nil {
 		return common.NotSupport, nil
 	}
@@ -164,17 +164,19 @@ func (w *wechatHandler) handleWechatTextMessage(ctx context.Context, content, UI
 		operator, userExist = w.userUseCase.GetByID(UID)
 		if !userExist || operator.Name == "" {
 			logrus.WithContext(ctx).Info("user not found, input required.")
-			return "", fmt.Errorf(common.NotFoundUserName)
+			return common.NotFoundUserName, nil
 		}
 	}
 	return h.Handle(operator)
 }
 
 func buildAIFunctions() domain.AI {
+	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	currentDate := time.Now().Format("2006/01/02")
 	expenses := []string{"收入", "支出"}
+	bookkeepingRequired := []string{"remark", "amount", "expenses", "category"}
 	return domain.AI{
-		Introduction: "你叫Richman 是一个基于飞书表格的记账软件。如果不明确用户的意图，可以指导用户使用这个如见。比如：可以通过输入包子花了15或者工资收入100 用来记账",
+		Introduction: fmt.Sprintf("你叫Richman 是一个基于飞书表格的记账软件。当前时间是 %s 如果不明确用户的意图，可以指导用户使用这个如见。比如：可以通过输入包子花了15或者工资收入100 用来记账", currentTime),
 		Functions: []domain.AIFunction{
 			{
 				Name:        "bookkeeping",
@@ -184,7 +186,7 @@ func buildAIFunctions() domain.AI {
 					Properties: map[string]domain.AIProperty{
 						"remark": {
 							Type:        "string",
-							Description: "备注信息",
+							Description: "名称或描述",
 						},
 						"amount": {
 							Type:        "string",
@@ -197,9 +199,10 @@ func buildAIFunctions() domain.AI {
 						},
 						"category": {
 							Type:        "string",
-							Description: "要查询的账单分类",
+							Description: "账单分类",
 						},
 					},
+					Required: &bookkeepingRequired,
 				},
 			},
 			{
@@ -304,7 +307,7 @@ func (w *wechatHandler) buildHandler(call *domain.AIFunctionCall, content string
 				Handle: func(operator *domain.User) (string, error) {
 					ledger, exists := w.ledgerUseCase.QueryByUID(operator.UID)
 					if !exists {
-						return common.NotBind, nil
+						ledger, _ = w.ledgerUseCase.Allocated(*operator)
 					}
 					return strings.Join(w.billUseCase.ListCategory(ledger.AppToken, ledger.TableToken), "\r\n"), nil
 				},
@@ -316,7 +319,7 @@ func (w *wechatHandler) buildHandler(call *domain.AIFunctionCall, content string
 				Handle: func(operator *domain.User) (string, error) {
 					ledger, exists := w.ledgerUseCase.QueryByUID(operator.UID)
 					if !exists {
-						return common.NotBind, nil
+						ledger, _ = w.ledgerUseCase.Allocated(*operator)
 					}
 					in := w.billUseCase.CurMonthTotal(ledger.AppToken, ledger.TableToken, common.Income, 0)
 					out := w.billUseCase.CurMonthTotal(ledger.AppToken, ledger.TableToken, common.Pay, 0)
@@ -337,7 +340,7 @@ func (w *wechatHandler) buildHandler(call *domain.AIFunctionCall, content string
 					}
 					ledger, exists := w.ledgerUseCase.QueryByUID(operator.UID)
 					if !exists {
-						return common.NotBind, nil
+						ledger, _ = w.ledgerUseCase.Allocated(*operator)
 					}
 					total := w.billUseCase.CurMonthTotal(ledger.AppToken, ledger.TableToken, common.Expenses(args.Expenses), amount)
 					if err := w.billUseCase.Save(ledger.AppToken, ledger.TableToken, &domain.Bill{
