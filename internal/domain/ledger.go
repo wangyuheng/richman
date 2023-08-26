@@ -1,6 +1,7 @@
 package domain
 
 type Ledger struct {
+	ID          string `json:"id"`
 	AppToken    string `json:"app_token"`
 	TableToken  string `json:"table_token"`
 	Name        string `json:"name"`

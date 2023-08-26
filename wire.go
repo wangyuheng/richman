@@ -14,6 +14,7 @@ import (
 	"github.com/wangyuheng/richman/internal/infrastructure/openai"
 	"github.com/wangyuheng/richman/internal/interfaces/http"
 	"github.com/wangyuheng/richman/internal/interfaces/http/handler"
+	"github.com/wangyuheng/richman/internal/task"
 	"github.com/wangyuheng/richman/internal/usecase"
 )
 
@@ -38,7 +39,12 @@ func InitializeWechatHandler(cfg *config.Config, db db.DB, larCli *lark.Client, 
 }
 
 func InitializeDevboxHandler(cfg *config.Config, db db.DB, larCli *lark.Client) (handler.DevboxHandler, error) {
-	wire.Build(handler.NewDevboxHandler, InitializeUserUseCase)
+	wire.Build(handler.NewDevboxHandler, InitializeLedgerUseCase, InitializeUserUseCase)
+	return nil, nil
+}
+
+func InitializeTask(cfg *config.Config, db db.DB, larCli *lark.Client) (task.Tasker, error) {
+	wire.Build(task.NewWarmTask, InitializeLedgerUseCase, database.NewLedgerRepository, database.NewUserRepository)
 	return nil, nil
 }
 

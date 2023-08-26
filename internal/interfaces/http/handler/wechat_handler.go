@@ -27,23 +27,44 @@ type WechatHandler interface {
 
 type wechatHandler struct {
 	token         string
-	idempotent    *lru.Cache
+	resCache      *lru.Cache
 	aiService     domain.AIService
 	billUseCase   usecase.BillUseCase
 	userUseCase   usecase.UserUseCase
 	ledgerUseCase usecase.LedgerUseCase
+	running       *running
+}
+
+type running struct {
+	toggle *lru.Cache
+}
+
+func (r *running) Start(msgID string) {
+	r.toggle.Add(fmt.Sprintf("%s:runing", msgID), true)
+}
+
+func (r *running) End(msgID string) {
+	r.toggle.Remove(fmt.Sprintf("%s:runing", msgID))
+}
+
+func (r *running) IsRunning(msgID string) bool {
+	return r.toggle.Contains(fmt.Sprintf("%s:runing", msgID))
 }
 
 // func NewWechatHandler(cfg *config.Config, user biz.User, aiService client.OpenaiService) WechatHandler {
 func NewWechatHandler(cfg *config.Config, billUseCase usecase.BillUseCase, aiService domain.AIService, ledgerUseCase usecase.LedgerUseCase, userUseCase usecase.UserUseCase) WechatHandler {
-	idempotent, _ := lru.New(256)
+	resCache, _ := lru.New(256)
+	runningCache, _ := lru.New(256)
 	return &wechatHandler{
 		token:         cfg.WechatToken,
-		idempotent:    idempotent,
+		resCache:      resCache,
 		aiService:     aiService,
 		billUseCase:   billUseCase,
 		ledgerUseCase: ledgerUseCase,
 		userUseCase:   userUseCase,
+		running: &running{
+			toggle: runningCache,
+		},
 	}
 }
 
@@ -88,18 +109,31 @@ func (w *wechatHandler) Dispatch(ctx *gin.Context) {
 			return
 		}
 	}()
-	// idempotent
-	if w.idempotent.Contains(req.MsgID) {
-		logger.Info("ignore repeat req")
+	if w.running.IsRunning(req.MsgID) {
+		for i := 0; i < 5; i++ {
+			logger.Info("wait for running finish")
+			time.Sleep(1 * time.Second)
+			if !w.running.IsRunning(req.MsgID) {
+				break
+			}
+		}
+	}
+	if r, ok := w.resCache.Get(req.MsgID); ok {
+		logger.Info("get res from cache")
+		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, r.(string))
 		return
 	}
-	w.idempotent.Add(req.MsgID, true)
-
+	w.running.Start(req.MsgID)
+	defer func() {
+		w.running.End(req.MsgID)
+	}()
 	res, err := w.handleWechatTextMessage(ctx, req.Content, req.FromUserName)
 	if err != nil {
+		w.resCache.Add(req.MsgID, common.Err(err))
 		w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, common.Err(err))
 		return
 	}
+	w.resCache.Add(req.MsgID, res)
 	w.returnTextMsg(ctx, req.ToUserName, req.FromUserName, res)
 	return
 }
@@ -140,7 +174,7 @@ func buildAIFunctions() domain.AI {
 	currentDate := time.Now().Format("2006/01/02")
 	expenses := []string{"收入", "支出"}
 	return domain.AI{
-		Introduction: "你叫Richman 是一个基于飞书表格的记账软件",
+		Introduction: "你叫Richman 是一个基于飞书表格的记账软件。如果不明确用户的意图，可以指导用户使用这个如见。比如：可以通过输入包子花了15或者工资收入100 用来记账",
 		Functions: []domain.AIFunction{
 			{
 				Name:        "bookkeeping",
@@ -255,7 +289,7 @@ func (w *wechatHandler) buildHandler(call *domain.AIFunctionCall, content string
 					var err error
 					ledger, exists := w.ledgerUseCase.QueryByUID(operator.UID)
 					if !exists {
-						ledger, err = w.ledgerUseCase.Generate(*operator)
+						ledger, err = w.ledgerUseCase.Allocated(*operator)
 						if err != nil {
 							return "", err
 						}
@@ -334,7 +368,7 @@ func (w *wechatHandler) buildHandler(call *domain.AIFunctionCall, content string
 					}
 					go func() {
 						if _, exist := w.ledgerUseCase.QueryByUID(operator.UID); !exist {
-							_, _ = w.ledgerUseCase.Generate(*operator)
+							_, _ = w.ledgerUseCase.Allocated(*operator)
 						}
 					}()
 

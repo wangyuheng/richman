@@ -21,11 +21,9 @@ type userRepository struct {
 }
 
 func NewUserRepository(db db.DB) domain.UserRepository {
-	u := &userRepository{
+	return &userRepository{
 		db: db,
 	}
-	u.WarmUP(context.Background())
-	return u
 }
 
 func (u *userRepository) WarmUP(ctx context.Context) {

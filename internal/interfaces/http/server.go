@@ -16,6 +16,7 @@ func NewEngine(wh handler.WechatHandler, dev handler.DevboxHandler) *gin.Engine 
 	devbox := router.Group("/devbox")
 	{
 		devbox.Any("GetUserByID", dev.GetUserByID)
+		devbox.Any("PreparedLedger", dev.PreparedLedger)
 	}
 
 	v2 := router.Group("/v2")

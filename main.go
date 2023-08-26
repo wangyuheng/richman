@@ -20,7 +20,6 @@ import (
 )
 
 func main() {
-
 	cfg := config.Load()
 	logrus.SetLevel(cfg.LogLevel)
 
@@ -42,6 +41,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	t, _ := InitializeTask(cfg, bdb, larkCli)
+	t.Start()
+
 	pprof.Register(r)
 	r.Use(requestid.New())
 

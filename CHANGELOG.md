@@ -1,3 +1,10 @@
+# 2023-08-26
+
+Refactor
+
+- 通过 `Prepared` 和 `Local Cache` 缩短账本生成时间
+- 通过 `running` 和 `Local Cache` 避免微信ack超时
+
 # 2023-08-20
 
 Feature
@@ -30,7 +37,7 @@ Refactor
 
 Feature
 
-- 提供生成账本功能 `Make Command` 
+- 提供生成账本功能 `Make Command`
 - 增加获取源码Cmd
 
 Refactor
@@ -47,14 +54,14 @@ Refactor
 # 2022-07-23
 
 - 支持微信公众号
-  - 绑定并获取事件回调URL
-  - 记账
+    - 绑定并获取事件回调URL
+    - 记账
 
 # 2022-07-10
 
 - 支持绑定多个app应用
-  - 提供Register接口进行注册
-  - Webhook增加appId标识
+    - 提供Register接口进行注册
+    - Webhook增加appId标识
 - 增加`账单`指令, 查看当前账本
 
 # 2022-07-09
