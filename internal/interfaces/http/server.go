@@ -7,18 +7,21 @@ import (
 
 func NewEngine(wh handler.WechatHandler, dev handler.DevboxHandler) *gin.Engine {
 	router := gin.Default()
-
-	router.GET("", func(ctx *gin.Context) {
+	// get source code
+	getSourceCode := func(ctx *gin.Context) {
 		ctx.Redirect(302, "https://github.com/wangyuheng/richman")
 		return
-	})
-
+	}
+	router.GET("", getSourceCode)
+	router.GET("source", getSourceCode)
+	router.GET("code", getSourceCode)
+	// develop box
 	devbox := router.Group("/devbox")
 	{
 		devbox.Any("GetUserByID", dev.GetUserByID)
 		devbox.Any("PreparedLedger", dev.PreparedLedger)
 	}
-
+	// biz
 	v2 := router.Group("/v2")
 	{
 		wx := v2.Group("/wx")

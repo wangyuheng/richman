@@ -8,6 +8,48 @@
 
 ![architecture](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/wangyuheng/richman/master/.design/architecture.puml)
 
+## For Developer
+
+### 启动
+
+### 1. 在env.go文件中设置环境变量
+
+```go
+package main
+
+import "os"
+
+func init() {
+	_ = os.Setenv("LARK_APP_ID", "x")
+	_ = os.Setenv("LARK_APP_SECRET", "x")
+	_ = os.Setenv("TEMPLATE_APP_TOKEN", "x")
+	_ = os.Setenv("TARGET_FOLDER_APP_TOKEN", "x")
+	_ = os.Setenv("AI_URL", "x")
+	_ = os.Setenv("AI_KEY", "sk-x")
+	_ = os.Setenv("WECHAT_TOKEN", "x")
+	_ = os.Setenv("DB_APP_TOKEN", "x")
+	_ = os.Setenv("DB_TABLE_TOKEN", "x")
+	_ = os.Setenv("AUDIT_LOG_DB_TOKEN", "x")
+	_ = os.Setenv("AUDIT_LOG_TABLE_TOKEN", "x")
+}
+```
+
+### 2. 通过main.go运行
+
+### 迭代
+
+#### 1. 安装wire，用于依赖注入
+
+```shell
+go install github.com/google/wire/cmd/wire@latest
+```
+
+#### 2. 通过wire生成依赖注入代码
+
+```shell
+wire
+```
+
 ## 飞书机器人
 
 - 视频教程: https://www.bilibili.com/video/BV1AY411K7rn

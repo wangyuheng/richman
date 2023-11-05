@@ -8,7 +8,7 @@ import (
 const (
 	NotFoundUserName = "欢迎使用飞书记账，请先告诉我你的名字"
 	AmountIllegal    = "金额格式错误"
-	NotSupport       = "往昔已逝，旧我已非。\r\n直接和我对话吧"
+	NotSupport       = "往昔已逝，旧我已非。\r\n我已进化为AI，直接和我对话吧 \r\n 比如： 我要记账"
 )
 
 func RecordSuccess(f float64, expenses Expenses) string {

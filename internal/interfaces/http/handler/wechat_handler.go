@@ -109,6 +109,7 @@ func (w *wechatHandler) Dispatch(ctx *gin.Context) {
 			return
 		}
 	}()
+	// ack超时，wechat会进行重试，缓存结果用于快速响应
 	if w.running.IsRunning(req.MsgID) {
 		for i := 0; i < 5; i++ {
 			logger.Info("wait for running finish")
@@ -142,17 +143,17 @@ func (w *wechatHandler) handleWechatTextMessage(ctx context.Context, content, UI
 	cmd := common.Trim(content)
 
 	var js map[string]string
+	// 不再支持json格式
 	if json.Unmarshal([]byte(cmd), &js) == nil {
 		return common.NotSupport, nil
 	}
+	// 不再支持“搞一个”
 	if cmd == "搞一个" {
 		return common.NotSupport, nil
 	}
 
-	operator := &domain.User{
-		UID: UID,
-	}
-
+	operator := &domain.User{UID: UID}
+	// 请求AI 进行处理
 	resp, err := w.aiService.CallFunctions(ctx, cmd, buildAIFunctions())
 	if err != nil {
 		return "", err
@@ -162,9 +163,12 @@ func (w *wechatHandler) handleWechatTextMessage(ctx context.Context, content, UI
 		logrus.WithContext(ctx).Infof("exec handler %s", h.Name)
 		userExist := false
 		operator, userExist = w.userUseCase.GetByID(UID)
-		if !userExist || operator.Name == "" {
+		if !userExist {
 			logrus.WithContext(ctx).Info("user not found, input required.")
 			return common.NotFoundUserName, nil
+		}
+		if operator.Name == "" {
+			operator.Name = UID
 		}
 	}
 	return h.Handle(operator)
