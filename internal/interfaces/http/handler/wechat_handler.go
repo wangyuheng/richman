@@ -188,23 +188,10 @@ func buildAIFunctions() domain.AI {
 				Parameters: domain.AIParameter{
 					Type: "object",
 					Properties: map[string]domain.AIProperty{
-						"remark": {
-							Type:        "string",
-							Description: "名称或描述",
-						},
-						"amount": {
-							Type:        "string",
-							Description: "账单金额 format by float64",
-						},
-						"expenses": {
-							Type:        "string",
-							Description: "收入还是支出",
-							Enum:        &expenses,
-						},
-						"category": {
-							Type:        "string",
-							Description: "账单分类",
-						},
+						"remark":   {Type: "string", Description: "名称或描述"},
+						"amount":   {Type: "string", Description: "账单金额 format by float64"},
+						"expenses": {Type: "string", Description: "收入还是支出", Enum: &expenses},
+						"category": {Type: "string", Description: "账单分类"},
 					},
 					Required: &bookkeepingRequired,
 				},
@@ -215,41 +202,22 @@ func buildAIFunctions() domain.AI {
 				Parameters: domain.AIParameter{
 					Type: "object",
 					Properties: map[string]domain.AIProperty{
-						"start_date": {
-							Type:        "string",
-							Description: fmt.Sprintf("查账开始时间，今天的日期是 %s，格式为 yyyy/mm/dd", currentDate),
-						},
-						"end_date": {
-							Type:        "string",
-							Description: fmt.Sprintf("查账结束时间，今天的日期是 %s，格式为 yyyy/mm/dd", currentDate),
-						},
-						"expenses": {
-							Type:        "string",
-							Description: "收入还是支出",
-							Enum:        &expenses,
-						},
-						"category": {
-							Type:        "string",
-							Description: "要查询的账单分类",
-						},
+						"start_date": {Type: "string", Description: fmt.Sprintf("查账开始时间，今天的日期是 %s，格式为 yyyy/mm/dd", currentDate)},
+						"end_date":   {Type: "string", Description: fmt.Sprintf("查账结束时间，今天的日期是 %s，格式为 yyyy/mm/dd", currentDate)},
+						"expenses":   {Type: "string", Description: "收入还是支出", Enum: &expenses},
+						"category":   {Type: "string", Description: "要查询的账单分类"},
 					},
 				},
 			},
 			{
 				Name:        "get_ledger",
 				Description: "获取账本信息，如: URL",
-				Parameters: domain.AIParameter{
-					Type:       "object",
-					Properties: map[string]domain.AIProperty{},
-				},
+				Parameters:  domain.AIParameter{Type: "object", Properties: map[string]domain.AIProperty{}},
 			},
 			{
 				Name:        "get_category",
 				Description: "获取分类",
-				Parameters: domain.AIParameter{
-					Type:       "object",
-					Properties: map[string]domain.AIProperty{},
-				},
+				Parameters:  domain.AIParameter{Type: "object", Properties: map[string]domain.AIProperty{}},
 			},
 			{
 				Name:        "get_user_identity",
@@ -257,25 +225,19 @@ func buildAIFunctions() domain.AI {
 				Parameters: domain.AIParameter{
 					Type: "object",
 					Properties: map[string]domain.AIProperty{
-						"name": {
-							Type:        "string",
-							Description: "用户希望被称呼的名字",
-						},
+						"name": {Type: "string", Description: "用户希望被称呼的名字"},
 					},
 				},
 			},
 			{
 				Name:        "get_source_code",
 				Description: "获取源代码",
-				Parameters: domain.AIParameter{
-					Type:       "object",
-					Properties: map[string]domain.AIProperty{},
-				},
+				Parameters:  domain.AIParameter{Type: "object", Properties: map[string]domain.AIProperty{}},
 			},
 		},
 	}
-
 }
+
 func (w *wechatHandler) buildHandler(call *domain.AIFunctionCall, content string) Handler {
 	if call != nil {
 		switch call.Name {
